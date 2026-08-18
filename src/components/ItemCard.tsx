@@ -1,0 +1,210 @@
+import { useState } from 'react';
+import type { ScheduleItem } from '../types';
+import { isItemDone } from '../types';
+import type { ColorStyle } from '../lib/colors';
+
+interface Props {
+  categoryId: string;
+  item: ScheduleItem;
+  color: ColorStyle;
+  editMode: boolean;
+  toggleItem: (categoryId: string, itemId: string) => void;
+  toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
+  updateItemMeta: (
+    categoryId: string,
+    itemId: string,
+    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes'>>,
+  ) => void;
+  deleteItem: (categoryId: string, itemId: string) => void;
+  addSubStep: (categoryId: string, itemId: string, text: string) => void;
+  updateSubStepText: (categoryId: string, itemId: string, subStepId: string, text: string) => void;
+  deleteSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
+}
+
+export function ItemCard({
+  categoryId,
+  item,
+  color,
+  editMode,
+  toggleItem,
+  toggleSubStep,
+  updateItemMeta,
+  deleteItem,
+  addSubStep,
+  updateSubStepText,
+  deleteSubStep,
+}: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const [newSubStep, setNewSubStep] = useState('');
+  const done = isItemDone(item);
+  const hasDetails = item.subSteps.length > 0 || item.notes.trim().length > 0;
+
+  function submitNewSubStep() {
+    const text = newSubStep.trim();
+    if (text) {
+      addSubStep(categoryId, item.id, text);
+      setNewSubStep('');
+    }
+  }
+
+  return (
+    <div
+      className={`rounded-2xl border transition-colors ${
+        done ? `${color.soft} ${color.border}` : 'bg-white dark:bg-neutral-900 border-black/10 dark:border-white/10'
+      }`}
+    >
+      <div className="flex items-center gap-3 p-3 sm:p-4">
+        <button
+          type="button"
+          aria-label={done ? 'Mark not done' : 'Mark done'}
+          onClick={() => toggleItem(categoryId, item.id)}
+          className={`shrink-0 flex items-center justify-center h-11 w-11 rounded-full border-2 text-xl transition-all active:scale-90 ${
+            done
+              ? `${color.chip} border-transparent text-white`
+              : 'border-black/20 dark:border-white/25 text-transparent hover:border-black/40'
+          }`}
+        >
+          {done ? '✓' : ''}
+        </button>
+
+        <button
+          type="button"
+          className="flex-1 min-w-0 text-left"
+          onClick={() => (hasDetails || editMode ? setExpanded((e) => !e) : undefined)}
+        >
+          {editMode ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={item.emoji}
+                onChange={(e) => updateItemMeta(categoryId, item.id, { emoji: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                className="w-11 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-lg"
+              />
+              <input
+                value={item.title}
+                onChange={(e) => updateItemMeta(categoryId, item.id, { title: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                className="min-w-[8rem] flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-semibold"
+                placeholder="Item title"
+              />
+              <input
+                value={item.time}
+                onChange={(e) => updateItemMeta(categoryId, item.id, { time: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                className="w-24 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
+                placeholder="Time"
+              />
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl leading-none">{item.emoji}</span>
+              <span className={`font-semibold ${done ? 'line-through opacity-60' : ''}`}>{item.title}</span>
+              {item.time && <span className="text-xs text-black/50 dark:text-white/50">{item.time}</span>}
+            </div>
+          )}
+          {!editMode && item.subSteps.length > 0 && (
+            <div className="mt-1 text-xs text-black/50 dark:text-white/50">
+              {item.subSteps.filter((s) => s.done).length}/{item.subSteps.length} steps
+            </div>
+          )}
+        </button>
+
+        {(hasDetails || editMode) && (
+          <button
+            type="button"
+            aria-label={expanded ? 'Collapse details' : 'Expand details'}
+            onClick={() => setExpanded((e) => !e)}
+            className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full text-black/40 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/10"
+          >
+            <span className={`inline-block transition-transform ${expanded ? 'rotate-180' : ''}`}>⌄</span>
+          </button>
+        )}
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 pl-[4.25rem] space-y-3">
+          {editMode ? (
+            <textarea
+              value={item.notes}
+              onChange={(e) => updateItemMeta(categoryId, item.id, { notes: e.target.value })}
+              placeholder="Tip or instructions to help him get it right..."
+              className="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1.5 text-sm"
+              rows={2}
+            />
+          ) : (
+            item.notes && <p className="text-sm text-black/60 dark:text-white/60 italic">{item.notes}</p>
+          )}
+
+          <ul className="space-y-1.5">
+            {item.subSteps.map((s) => (
+              <li key={s.id} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label={s.done ? 'Mark step not done' : 'Mark step done'}
+                  onClick={() => toggleSubStep(categoryId, item.id, s.id)}
+                  className={`shrink-0 flex items-center justify-center h-6 w-6 rounded-md border-2 text-sm active:scale-90 ${
+                    s.done
+                      ? `${color.chip} border-transparent text-white`
+                      : 'border-black/20 dark:border-white/25 text-transparent'
+                  }`}
+                >
+                  {s.done ? '✓' : ''}
+                </button>
+                {editMode ? (
+                  <>
+                    <input
+                      value={s.text}
+                      onChange={(e) => updateSubStepText(categoryId, item.id, s.id, e.target.value)}
+                      className="flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => deleteSubStep(categoryId, item.id, s.id)}
+                      className="shrink-0 text-black/40 hover:text-red-500 text-sm px-1"
+                      aria-label="Delete step"
+                    >
+                      ✕
+                    </button>
+                  </>
+                ) : (
+                  <span className={`text-sm ${s.done ? 'line-through opacity-60' : ''}`}>{s.text}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {editMode && (
+            <div className="flex items-center gap-2">
+              <input
+                value={newSubStep}
+                onChange={(e) => setNewSubStep(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submitNewSubStep();
+                }}
+                placeholder="Add a step..."
+                className="flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
+              />
+              <button
+                type="button"
+                onClick={submitNewSubStep}
+                className="shrink-0 rounded-lg bg-black/5 dark:bg-white/10 px-3 py-1 text-sm font-medium"
+              >
+                Add
+              </button>
+            </div>
+          )}
+
+          {editMode && (
+            <button
+              type="button"
+              onClick={() => deleteItem(categoryId, item.id)}
+              className="text-sm text-red-500 hover:text-red-600"
+            >
+              Delete this item
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "focus-scheduler-dev",
+      "runtimeExecutable": "D:\\GitHub\\focus-scheduler\\dev.bat",
+      "runtimeArgs": [],
+      "port": 5173
+    }
+  ]
+}
