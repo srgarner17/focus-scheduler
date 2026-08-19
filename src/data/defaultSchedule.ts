@@ -1,4 +1,5 @@
 import type { Category, ScheduleData } from '../types';
+import { ALL_DAYS } from '../types';
 import { makeId } from '../lib/id';
 
 function item(
@@ -7,6 +8,7 @@ function item(
   time: string,
   notes: string,
   subSteps: string[],
+  days: number[] = ALL_DAYS,
 ): Category['items'][number] {
   return {
     id: makeId(),
@@ -15,6 +17,7 @@ function item(
     time,
     notes,
     done: false,
+    days,
     subSteps: subSteps.map((text) => ({ id: makeId(), text, done: false })),
   };
 }
@@ -81,18 +84,22 @@ export function buildDefaultSchedule(): ScheduleData {
       emoji: '⚽',
       color: 'blue',
       items: [
-        item('Pack Soccer Bag', '🎽', '', 'Lay everything out before you pack it so nothing gets left behind.', [
-          'Cleats',
-          'Shin guards',
-          'Practice jersey',
-          'Water bottle filled',
-        ]),
-        item('Warm-Up Drills', '🔥', '', 'Do these before practice or a game — don\'t skip the stretch.', [
-          '10 jumping jacks',
-          'Dribble figure-8 x5',
-          '20 juggles',
-          'Stretch legs for 2 minutes',
-        ]),
+        item(
+          'Pack Soccer Bag',
+          '🎽',
+          '',
+          'Lay everything out before you pack it so nothing gets left behind.',
+          ['Cleats', 'Shin guards', 'Practice jersey', 'Water bottle filled'],
+          [2, 4, 6], // example: Tue/Thu practice + Sat game — adjust in Edit mode to match his real schedule
+        ),
+        item(
+          'Warm-Up Drills',
+          '🔥',
+          '',
+          "Do these before practice or a game — don't skip the stretch.",
+          ['10 jumping jacks', 'Dribble figure-8 x5', '20 juggles', 'Stretch legs for 2 minutes'],
+          [2, 4, 6],
+        ),
         item('Ball Control Practice', '🥅', '', '15 minutes in the yard or driveway.', [
           'Inside-foot passes x20',
           'Cone weave x5',

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { ScheduleItem } from '../types';
-import { isItemDone } from '../types';
+import { ALL_DAYS, isItemActiveOnDay, isItemDone } from '../types';
 import type { ColorStyle } from '../lib/colors';
+import { todayDayIndex } from '../lib/date';
+import { DayPicker } from './DayPicker';
 
 interface Props {
   categoryId: string;
@@ -13,7 +15,7 @@ interface Props {
   updateItemMeta: (
     categoryId: string,
     itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes'>>,
+    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days'>>,
   ) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
@@ -38,6 +40,8 @@ export function ItemCard({
   const [newSubStep, setNewSubStep] = useState('');
   const done = isItemDone(item);
   const hasDetails = item.subSteps.length > 0 || item.notes.trim().length > 0;
+  const activeToday = isItemActiveOnDay(item, todayDayIndex());
+  const everyDay = item.days.length === ALL_DAYS.length;
 
   function submitNewSubStep() {
     const text = newSubStep.trim();
@@ -51,7 +55,7 @@ export function ItemCard({
     <div
       className={`rounded-2xl border transition-colors ${
         done ? `${color.soft} ${color.border}` : 'bg-white dark:bg-neutral-900 border-black/10 dark:border-white/10'
-      }`}
+      } ${editMode && !activeToday ? 'opacity-50' : ''}`}
     >
       <div className="flex items-center gap-3 p-3 sm:p-4">
         <button
@@ -94,6 +98,9 @@ export function ItemCard({
                 className="w-24 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
                 placeholder="Time"
               />
+              {!everyDay && (
+                <span className="text-xs text-black/40 dark:text-white/40">not every day</span>
+              )}
             </div>
           ) : (
             <div className="flex items-baseline gap-2">
@@ -123,6 +130,16 @@ export function ItemCard({
 
       {expanded && (
         <div className="px-4 pb-4 pl-[4.25rem] space-y-3">
+          {editMode && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-black/50 dark:text-white/50">Active days</p>
+              <DayPicker
+                days={item.days}
+                onChange={(days) => updateItemMeta(categoryId, item.id, { days })}
+                chipClass={color.chip}
+              />
+            </div>
+          )}
           {editMode ? (
             <textarea
               value={item.notes}

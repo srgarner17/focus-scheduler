@@ -12,6 +12,7 @@ export interface ScheduleItem {
   notes: string; // free-text tip shown to help him get it right
   subSteps: SubStep[];
   done: boolean; // used directly only when subSteps is empty
+  days: number[]; // which days this item is active: 0=Sun..6=Sat (matches Date#getDay())
 }
 
 export interface Category {
@@ -36,3 +37,20 @@ export function isItemDone(item: ScheduleItem): boolean {
   }
   return item.done;
 }
+
+export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+export function isItemActiveOnDay(item: ScheduleItem, dayIndex: number): boolean {
+  return item.days.includes(dayIndex);
+}
+
+export const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+export const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];

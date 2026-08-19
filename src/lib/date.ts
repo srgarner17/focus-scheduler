@@ -6,6 +6,10 @@ export function todayKey(): string {
   return `${y}-${m}-${day}`;
 }
 
+export function todayDayIndex(): number {
+  return new Date().getDay();
+}
+
 export function friendlyDate(): string {
   return new Date().toLocaleDateString(undefined, {
     weekday: 'long',

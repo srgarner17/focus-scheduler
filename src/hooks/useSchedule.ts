@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Category, CategoryColor, ScheduleData, ScheduleItem } from '../types';
+import { ALL_DAYS } from '../types';
 import { loadSchedule, saveSchedule } from '../lib/storage';
 import { makeId } from '../lib/id';
 
@@ -82,6 +83,7 @@ export function useSchedule() {
       notes: '',
       subSteps: [],
       done: false,
+      days: ALL_DAYS,
     };
     updateCategory(categoryId, (c) => ({ ...c, items: [...c.items, newItem] }));
     return newItem.id;
@@ -90,7 +92,7 @@ export function useSchedule() {
   function updateItemMeta(
     categoryId: string,
     itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes'>>,
+    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days'>>,
   ) {
     updateItem(categoryId, itemId, (it) => ({ ...it, ...patch }));
   }

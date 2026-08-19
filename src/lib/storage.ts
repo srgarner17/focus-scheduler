@@ -1,8 +1,22 @@
 import type { ScheduleData } from '../types';
+import { ALL_DAYS } from '../types';
 import { buildDefaultSchedule } from '../data/defaultSchedule';
 import { todayKey } from './date';
 
 const STORAGE_KEY = 'focus-scheduler-data-v1';
+
+function normalize(data: ScheduleData): ScheduleData {
+  return {
+    ...data,
+    categories: data.categories.map((cat) => ({
+      ...cat,
+      items: cat.items.map((it) => ({
+        ...it,
+        days: Array.isArray(it.days) ? it.days : ALL_DAYS,
+      })),
+    })),
+  };
+}
 
 function resetCompletion(data: ScheduleData): ScheduleData {
   return {
@@ -23,7 +37,7 @@ export function loadSchedule(): ScheduleData {
   let data: ScheduleData;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    data = raw ? (JSON.parse(raw) as ScheduleData) : buildDefaultSchedule();
+    data = raw ? normalize(JSON.parse(raw) as ScheduleData) : buildDefaultSchedule();
   } catch {
     data = buildDefaultSchedule();
   }

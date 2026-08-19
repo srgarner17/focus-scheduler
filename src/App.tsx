@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSchedule } from './hooks/useSchedule';
-import { isItemDone } from './types';
-import { friendlyDate } from './lib/date';
+import { isItemActiveOnDay, isItemDone } from './types';
+import { friendlyDate, todayDayIndex } from './lib/date';
 import { CategorySection } from './components/CategorySection';
 import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
@@ -11,7 +11,10 @@ function App() {
   const [editMode, setEditMode] = useState(false);
   const [nameDraft, setNameDraft] = useState(s.data.childName);
 
-  const allItems = s.data.categories.flatMap((c) => c.items);
+  const today = todayDayIndex();
+  const allItems = s.data.categories
+    .flatMap((c) => c.items)
+    .filter((it) => isItemActiveOnDay(it, today));
   const totalCount = allItems.length;
   const doneCount = allItems.filter(isItemDone).length;
   const percent = totalCount === 0 ? 0 : (doneCount / totalCount) * 100;

@@ -1,6 +1,7 @@
 import type { Category, ScheduleItem } from '../types';
-import { isItemDone } from '../types';
+import { isItemActiveOnDay, isItemDone } from '../types';
 import { colorStyles } from '../lib/colors';
+import { todayDayIndex } from '../lib/date';
 import { ProgressBar } from './ProgressBar';
 import { ItemCard } from './ItemCard';
 
@@ -15,7 +16,7 @@ interface Props {
   updateItemMeta: (
     categoryId: string,
     itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes'>>,
+    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days'>>,
   ) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
@@ -38,8 +39,11 @@ export function CategorySection({
   deleteSubStep,
 }: Props) {
   const color = colorStyles[category.color];
-  const total = category.items.length;
-  const doneCount = category.items.filter(isItemDone).length;
+  const today = todayDayIndex();
+  const activeItems = category.items.filter((it) => isItemActiveOnDay(it, today));
+  const displayedItems = editMode ? category.items : activeItems;
+  const total = activeItems.length;
+  const doneCount = activeItems.filter(isItemDone).length;
   const percent = total === 0 ? 0 : (doneCount / total) * 100;
 
   return (
@@ -77,7 +81,7 @@ export function CategorySection({
       </div>
 
       <div className="space-y-2">
-        {category.items.map((item) => (
+        {displayedItems.map((item) => (
           <ItemCard
             key={item.id}
             categoryId={category.id}
@@ -93,8 +97,10 @@ export function CategorySection({
             deleteSubStep={deleteSubStep}
           />
         ))}
-        {total === 0 && !editMode && (
-          <p className="text-sm text-black/40 dark:text-white/40 italic px-1">No items yet.</p>
+        {displayedItems.length === 0 && !editMode && (
+          <p className="text-sm text-black/40 dark:text-white/40 italic px-1">
+            {category.items.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}
+          </p>
         )}
       </div>
 
