@@ -113,5 +113,6 @@ export function buildDefaultSchedule(): ScheduleData {
     childName: '',
     categories,
     lastResetDate: '',
+    editPin: '',
   };
 }

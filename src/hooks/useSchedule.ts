@@ -60,6 +60,10 @@ export function useSchedule() {
     setData((d) => ({ ...d, childName: name }));
   }
 
+  function setEditPin(pin: string) {
+    setData((d) => ({ ...d, editPin: pin }));
+  }
+
   function addCategory(name: string, emoji: string, color: CategoryColor) {
     const cat: Category = { id: makeId(), name, emoji, color, items: [] };
     setData((d) => ({ ...d, categories: [...d.categories, cat] }));
@@ -128,6 +132,7 @@ export function useSchedule() {
     toggleSubStep,
     resetAll,
     setChildName,
+    setEditPin,
     addCategory,
     updateCategoryMeta,
     deleteCategory,

@@ -6,12 +6,27 @@ import { CategorySection } from './components/CategorySection';
 import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
 import { WeekView } from './components/WeekView';
+import { PinPrompt } from './components/PinPrompt';
 
 function App() {
   const s = useSchedule();
   const [editMode, setEditMode] = useState(false);
   const [view, setView] = useState<'today' | 'week'>('today');
   const [nameDraft, setNameDraft] = useState(s.data.childName);
+  const [pinPromptOpen, setPinPromptOpen] = useState(false);
+  const [newPinDraft, setNewPinDraft] = useState('');
+
+  function handleEditClick() {
+    if (editMode) {
+      setEditMode(false);
+      return;
+    }
+    if (s.data.editPin) {
+      setPinPromptOpen(true);
+    } else {
+      setEditMode(true);
+    }
+  }
 
   const today = todayDayIndex();
   const allItems = s.data.categories
@@ -24,6 +39,16 @@ function App() {
 
   return (
     <div className="min-h-svh bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
+      {pinPromptOpen && (
+        <PinPrompt
+          expectedPin={s.data.editPin}
+          onSuccess={() => {
+            setPinPromptOpen(false);
+            setEditMode(true);
+          }}
+          onCancel={() => setPinPromptOpen(false)}
+        />
+      )}
       <div className="mx-auto max-w-xl px-4 pb-24 pt-6 sm:pt-10">
         <header className="mb-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
@@ -46,7 +71,7 @@ function App() {
             {view === 'today' && (
               <button
                 type="button"
-                onClick={() => setEditMode((v) => !v)}
+                onClick={handleEditClick}
                 className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium ${
                   editMode
                     ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
@@ -130,7 +155,50 @@ function App() {
         </main>
 
         {view === 'today' && editMode && (
-          <div className="mt-8 border-t border-black/10 dark:border-white/10 pt-4">
+          <div className="mt-8 space-y-4 border-t border-black/10 dark:border-white/10 pt-4">
+            <div>
+              <p className="mb-1 text-sm font-medium">Parent PIN</p>
+              {s.data.editPin ? (
+                <div className="flex items-center gap-3">
+                  <p className="text-sm text-black/50 dark:text-white/50">Editing is locked with a PIN.</p>
+                  <button
+                    type="button"
+                    onClick={() => s.setEditPin('')}
+                    className="text-sm text-red-500 hover:text-red-600"
+                  >
+                    Remove PIN
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    value={newPinDraft}
+                    onChange={(e) => setNewPinDraft(e.target.value.replace(/\D/g, ''))}
+                    placeholder="4-digit PIN"
+                    className="w-28 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={newPinDraft.length !== 4}
+                    onClick={() => {
+                      s.setEditPin(newPinDraft);
+                      setNewPinDraft('');
+                    }}
+                    className="rounded-lg bg-black/5 dark:bg-white/10 px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+                  >
+                    Set PIN
+                  </button>
+                </div>
+              )}
+              <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+                Require a PIN before Edit mode can be opened, so he can't accidentally change things.
+              </p>
+            </div>
+
             <button
               type="button"
               onClick={() => {

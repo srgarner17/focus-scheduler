@@ -29,6 +29,7 @@ export interface ScheduleData {
   childName: string;
   categories: Category[];
   lastResetDate: string; // YYYY-MM-DD, local date of last daily reset
+  editPin: string; // 4-digit PIN required to enter Edit mode; empty = no lock
 }
 
 export function isItemDone(item: ScheduleItem): boolean {
