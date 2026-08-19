@@ -90,7 +90,7 @@ export function buildDefaultSchedule(): ScheduleData {
           '',
           'Lay everything out before you pack it so nothing gets left behind.',
           ['Cleats', 'Shin guards', 'Practice jersey', 'Water bottle filled'],
-          [2, 4, 6], // example: Tue/Thu practice + Sat game — adjust in Edit mode to match his real schedule
+          [1, 2, 3], // Mon/Tue/Wed practice days
         ),
         item(
           'Warm-Up Drills',
@@ -98,7 +98,7 @@ export function buildDefaultSchedule(): ScheduleData {
           '',
           "Do these before practice or a game — don't skip the stretch.",
           ['10 jumping jacks', 'Dribble figure-8 x5', '20 juggles', 'Stretch legs for 2 minutes'],
-          [2, 4, 6],
+          [1, 2, 3],
         ),
         item('Ball Control Practice', '🥅', '', '15 minutes in the yard or driveway.', [
           'Inside-foot passes x20',
