@@ -5,10 +5,12 @@ import { friendlyDate, todayDayIndex } from './lib/date';
 import { CategorySection } from './components/CategorySection';
 import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
+import { WeekView } from './components/WeekView';
 
 function App() {
   const s = useSchedule();
   const [editMode, setEditMode] = useState(false);
+  const [view, setView] = useState<'today' | 'week'>('today');
   const [nameDraft, setNameDraft] = useState(s.data.childName);
 
   const today = todayDayIndex();
@@ -41,20 +43,41 @@ function App() {
                 </h1>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setEditMode((v) => !v)}
-              className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium ${
-                editMode
-                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                  : 'bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/60'
-              }`}
-            >
-              {editMode ? 'Done editing' : '⚙️ Edit'}
-            </button>
+            {view === 'today' && (
+              <button
+                type="button"
+                onClick={() => setEditMode((v) => !v)}
+                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium ${
+                  editMode
+                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                    : 'bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/60'
+                }`}
+              >
+                {editMode ? 'Done editing' : '⚙️ Edit'}
+              </button>
+            )}
           </div>
 
-          {totalCount > 0 && (
+          <div className="flex rounded-full bg-black/5 p-1 dark:bg-white/10" role="tablist">
+            {(['today', 'week'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`flex-1 rounded-full py-1.5 text-sm font-semibold capitalize transition-colors ${
+                  view === v
+                    ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-white'
+                    : 'text-black/50 dark:text-white/50'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+
+          {view === 'today' && totalCount > 0 && (
             <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/10 dark:border-white/10 p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium">Today's progress</span>
@@ -73,34 +96,40 @@ function App() {
         </header>
 
         <main className="space-y-8">
-          {s.data.categories.map((category) => (
-            <CategorySection
-              key={category.id}
-              category={category}
-              editMode={editMode}
-              toggleItem={s.toggleItem}
-              toggleSubStep={s.toggleSubStep}
-              updateCategoryMeta={s.updateCategoryMeta}
-              deleteCategory={s.deleteCategory}
-              addItem={s.addItem}
-              updateItemMeta={s.updateItemMeta}
-              deleteItem={s.deleteItem}
-              addSubStep={s.addSubStep}
-              updateSubStepText={s.updateSubStepText}
-              deleteSubStep={s.deleteSubStep}
-            />
-          ))}
+          {view === 'week' ? (
+            <WeekView categories={s.data.categories} todayIndex={today} />
+          ) : (
+            <>
+              {s.data.categories.map((category) => (
+                <CategorySection
+                  key={category.id}
+                  category={category}
+                  editMode={editMode}
+                  toggleItem={s.toggleItem}
+                  toggleSubStep={s.toggleSubStep}
+                  updateCategoryMeta={s.updateCategoryMeta}
+                  deleteCategory={s.deleteCategory}
+                  addItem={s.addItem}
+                  updateItemMeta={s.updateItemMeta}
+                  deleteItem={s.deleteItem}
+                  addSubStep={s.addSubStep}
+                  updateSubStepText={s.updateSubStepText}
+                  deleteSubStep={s.deleteSubStep}
+                />
+              ))}
 
-          {editMode && <AddCategory onAdd={s.addCategory} />}
+              {editMode && <AddCategory onAdd={s.addCategory} />}
 
-          {s.data.categories.length === 0 && !editMode && (
-            <p className="text-center text-black/40 dark:text-white/40">
-              Nothing scheduled yet. Tap "Edit" to add a category.
-            </p>
+              {s.data.categories.length === 0 && !editMode && (
+                <p className="text-center text-black/40 dark:text-white/40">
+                  Nothing scheduled yet. Tap "Edit" to add a category.
+                </p>
+              )}
+            </>
           )}
         </main>
 
-        {editMode && (
+        {view === 'today' && editMode && (
           <div className="mt-8 border-t border-black/10 dark:border-white/10 pt-4">
             <button
               type="button"
