@@ -4,6 +4,17 @@ _Last updated: 2026-08-20_
 
 A running log of what's shipped and what's next for Focus Plan, the daily checklist app for keeping him on track with mornings, chores, and soccer prep.
 
+## Restart point (2026-08-20)
+
+If this session drops, here's exactly where things stand and how to pick back up.
+
+- **Working tree:** clean, nothing uncommitted anywhere.
+- **Current branch:** `add-roadmap-doc`, pushed, matches `origin/add-roadmap-doc` exactly.
+- **`master`** is at commit `58946a5` — includes the GitHub Pages deploy (PR #1, merged). Live at https://srgarner17.github.io/focus-scheduler/.
+- **Open PR:** [#2 "Add project roadmap doc"](https://github.com/srgarner17/focus-scheduler/pull/2) — this file, not yet merged. Merge it when ready, or keep adding to the `add-roadmap-doc` branch.
+- **Immediate next action:** confirm the Vercel production URL from the Vercel dashboard (Project → Visit, or Settings → Domains) — this was in progress when the session paused. See [Open decisions](#open-decisions) below for what to do once you have it.
+- **Repo state:** public, branch protection on `master` (PR required, admin bypass allowed), feature-branch workflow is the standing default. A new Claude Code session in this repo already has this saved in memory and shouldn't need re-explaining.
+
 ## Shipped this session
 
 - [x] **Core app** — categories (Morning Routine, Chores, Soccer Prep) with checklist items, expandable sub-steps and tips, daily auto-reset, all saved locally in the browser
