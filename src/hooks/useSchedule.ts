@@ -1,18 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { onSnapshot, setDoc } from 'firebase/firestore';
 import type { Category, CategoryColor, ScheduleData, ScheduleItem } from '../types';
 import { ALL_DAYS } from '../types';
-import { loadSchedule, saveSchedule } from '../lib/storage';
+import { normalize, resetCompletion, scheduleDocRef } from '../lib/storage';
+import { buildDefaultSchedule } from '../data/defaultSchedule';
+import { ensureSignedIn } from '../lib/firebase';
+import { todayKey } from '../lib/date';
 import { makeId } from '../lib/id';
 
 export function useSchedule() {
-  const [data, setData] = useState<ScheduleData>(() => loadSchedule());
+  const [data, setData] = useState<ScheduleData | null>(null);
+  const dataRef = useRef<ScheduleData | null>(null);
+  dataRef.current = data;
 
   useEffect(() => {
-    saveSchedule(data);
-  }, [data]);
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    ensureSignedIn().then(() => {
+      if (cancelled) return;
+      unsubscribe = onSnapshot(scheduleDocRef, (snap) => {
+        if (!snap.exists()) {
+          setDoc(scheduleDocRef, buildDefaultSchedule());
+          return;
+        }
+        let d = normalize(snap.data() as ScheduleData);
+        if (d.lastResetDate !== todayKey()) {
+          d = resetCompletion(d);
+          setDoc(scheduleDocRef, d);
+          return;
+        }
+        setData(d);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, []);
+
+  function mutate(fn: (d: ScheduleData) => ScheduleData) {
+    const current = dataRef.current;
+    if (!current) return;
+    setDoc(scheduleDocRef, fn(current));
+  }
 
   function updateCategory(categoryId: string, fn: (cat: Category) => Category) {
-    setData((d) => ({
+    mutate((d) => ({
       ...d,
       categories: d.categories.map((c) => (c.id === categoryId ? fn(c) : c)),
     }));
@@ -43,30 +78,20 @@ export function useSchedule() {
   }
 
   function resetAll() {
-    setData((d) => ({
-      ...d,
-      categories: d.categories.map((c) => ({
-        ...c,
-        items: c.items.map((it) => ({
-          ...it,
-          done: false,
-          subSteps: it.subSteps.map((s) => ({ ...s, done: false })),
-        })),
-      })),
-    }));
+    mutate((d) => resetCompletion(d));
   }
 
   function setChildName(name: string) {
-    setData((d) => ({ ...d, childName: name }));
+    mutate((d) => ({ ...d, childName: name }));
   }
 
   function setEditPin(pin: string) {
-    setData((d) => ({ ...d, editPin: pin }));
+    mutate((d) => ({ ...d, editPin: pin }));
   }
 
   function addCategory(name: string, emoji: string, color: CategoryColor) {
     const cat: Category = { id: makeId(), name, emoji, color, items: [] };
-    setData((d) => ({ ...d, categories: [...d.categories, cat] }));
+    mutate((d) => ({ ...d, categories: [...d.categories, cat] }));
     return cat.id;
   }
 
@@ -75,7 +100,7 @@ export function useSchedule() {
   }
 
   function deleteCategory(categoryId: string) {
-    setData((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== categoryId) }));
+    mutate((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== categoryId) }));
   }
 
   function addItem(categoryId: string) {
