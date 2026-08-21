@@ -1,11 +1,14 @@
+import { doc } from 'firebase/firestore';
 import type { ScheduleData } from '../types';
 import { ALL_DAYS } from '../types';
-import { buildDefaultSchedule } from '../data/defaultSchedule';
+import { db } from './firebase';
 import { todayKey } from './date';
 
-const STORAGE_KEY = 'focus-scheduler-data-v1';
+// One shared document for the whole household — every device (each parent's
+// phone, the kid's iPad) reads and writes the same schedule here.
+export const scheduleDocRef = doc(db, 'household', 'schedule');
 
-function normalize(data: ScheduleData): ScheduleData {
+export function normalize(data: ScheduleData): ScheduleData {
   return {
     ...data,
     editPin: typeof data.editPin === 'string' ? data.editPin : '',
@@ -19,7 +22,7 @@ function normalize(data: ScheduleData): ScheduleData {
   };
 }
 
-function resetCompletion(data: ScheduleData): ScheduleData {
+export function resetCompletion(data: ScheduleData): ScheduleData {
   return {
     ...data,
     lastResetDate: todayKey(),
@@ -32,29 +35,4 @@ function resetCompletion(data: ScheduleData): ScheduleData {
       })),
     })),
   };
-}
-
-export function loadSchedule(): ScheduleData {
-  let data: ScheduleData;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    data = raw ? normalize(JSON.parse(raw) as ScheduleData) : buildDefaultSchedule();
-  } catch {
-    data = buildDefaultSchedule();
-  }
-
-  if (data.lastResetDate !== todayKey()) {
-    data = resetCompletion(data);
-    saveSchedule(data);
-  }
-
-  return data;
-}
-
-export function saveSchedule(data: ScheduleData): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // storage full or unavailable — fail silently, in-memory state still works this session
-  }
 }

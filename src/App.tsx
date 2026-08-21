@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSchedule } from './hooks/useSchedule';
 import { isItemActiveOnDay, isItemDone } from './types';
 import { friendlyDate, todayDayIndex } from './lib/date';
@@ -12,26 +12,41 @@ function App() {
   const s = useSchedule();
   const [editMode, setEditMode] = useState(false);
   const [view, setView] = useState<'today' | 'week'>('today');
-  const [nameDraft, setNameDraft] = useState(s.data.childName);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameSynced, setNameSynced] = useState(false);
   const [pinPromptOpen, setPinPromptOpen] = useState(false);
   const [newPinDraft, setNewPinDraft] = useState('');
+
+  useEffect(() => {
+    if (s.data && !nameSynced) {
+      setNameDraft(s.data.childName);
+      setNameSynced(true);
+    }
+  }, [s.data, nameSynced]);
 
   function handleEditClick() {
     if (editMode) {
       setEditMode(false);
       return;
     }
-    if (s.data.editPin) {
+    if (s.data?.editPin) {
       setPinPromptOpen(true);
     } else {
       setEditMode(true);
     }
   }
 
+  if (!s.data) {
+    return (
+      <div className="flex min-h-svh items-center justify-center bg-neutral-50 text-neutral-400 dark:bg-neutral-950 dark:text-neutral-600">
+        <p className="text-sm">Loading…</p>
+      </div>
+    );
+  }
+
+  const data = s.data;
   const today = todayDayIndex();
-  const allItems = s.data.categories
-    .flatMap((c) => c.items)
-    .filter((it) => isItemActiveOnDay(it, today));
+  const allItems = data.categories.flatMap((c) => c.items).filter((it) => isItemActiveOnDay(it, today));
   const totalCount = allItems.length;
   const doneCount = allItems.filter(isItemDone).length;
   const percent = totalCount === 0 ? 0 : (doneCount / totalCount) * 100;
@@ -41,7 +56,7 @@ function App() {
     <div className="min-h-svh bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
       {pinPromptOpen && (
         <PinPrompt
-          expectedPin={s.data.editPin}
+          expectedPin={data.editPin}
           onSuccess={() => {
             setPinPromptOpen(false);
             setEditMode(true);
@@ -64,7 +79,7 @@ function App() {
                 />
               ) : (
                 <h1 className="text-2xl font-bold">
-                  {s.data.childName ? `${s.data.childName}'s Focus Plan` : "Today's Focus Plan"}
+                  {data.childName ? `${data.childName}'s Focus Plan` : "Today's Focus Plan"}
                 </h1>
               )}
             </div>
@@ -122,10 +137,10 @@ function App() {
 
         <main className="space-y-8">
           {view === 'week' ? (
-            <WeekView categories={s.data.categories} todayIndex={today} />
+            <WeekView categories={data.categories} todayIndex={today} />
           ) : (
             <>
-              {s.data.categories.map((category) => (
+              {data.categories.map((category) => (
                 <CategorySection
                   key={category.id}
                   category={category}
@@ -145,7 +160,7 @@ function App() {
 
               {editMode && <AddCategory onAdd={s.addCategory} />}
 
-              {s.data.categories.length === 0 && !editMode && (
+              {data.categories.length === 0 && !editMode && (
                 <p className="text-center text-black/40 dark:text-white/40">
                   Nothing scheduled yet. Tap "Edit" to add a category.
                 </p>
@@ -158,7 +173,7 @@ function App() {
           <div className="mt-8 space-y-4 border-t border-black/10 dark:border-white/10 pt-4">
             <div>
               <p className="mb-1 text-sm font-medium">Parent PIN</p>
-              {s.data.editPin ? (
+              {data.editPin ? (
                 <div className="flex items-center gap-3">
                   <p className="text-sm text-black/50 dark:text-white/50">Editing is locked with a PIN.</p>
                   <button
