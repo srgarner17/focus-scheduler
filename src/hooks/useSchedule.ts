@@ -43,7 +43,14 @@ export function useSchedule() {
   function mutate(fn: (d: ScheduleData) => ScheduleData) {
     const current = dataRef.current;
     if (!current) return;
-    setDoc(scheduleDocRef, fn(current));
+    const next = fn(current);
+    // Update local state immediately so controlled inputs (item titles, notes,
+    // etc.) reflect keystrokes instantly instead of waiting on the Firestore
+    // round-trip — without this, the input's value only changes once the
+    // async write resolves, which resets the cursor to the end on every
+    // keystroke. The write below still syncs it to other devices.
+    setData(next);
+    setDoc(scheduleDocRef, next);
   }
 
   function updateCategory(categoryId: string, fn: (cat: Category) => Category) {
