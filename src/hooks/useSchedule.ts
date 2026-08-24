@@ -1,12 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
-import { onSnapshot, setDoc } from 'firebase/firestore';
+import { onSnapshot, runTransaction } from 'firebase/firestore';
 import type { Category, CategoryColor, ScheduleData, ScheduleItem } from '../types';
 import { ALL_DAYS } from '../types';
 import { normalize, resetCompletion, scheduleDocRef } from '../lib/storage';
 import { buildDefaultSchedule } from '../data/defaultSchedule';
-import { ensureSignedIn } from '../lib/firebase';
+import { db, ensureSignedIn } from '../lib/firebase';
 import { todayKey } from '../lib/date';
 import { makeId } from '../lib/id';
+
+// Reads the current server document inside a transaction, applies fn to
+// THAT (never to a possibly-stale local snapshot), and writes the result
+// back atomically. This is the only way any write happens in this hook —
+// a device with an out-of-date local copy (dropped connection, backgrounded
+// for hours, stale timer check) can never blindly overwrite another
+// device's more recent edits, because every write starts from a fresh read.
+async function transactionalUpdate(fn: (d: ScheduleData) => ScheduleData): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(scheduleDocRef);
+    const serverData = snap.exists() ? normalize(snap.data() as ScheduleData) : buildDefaultSchedule();
+    transaction.set(scheduleDocRef, fn(serverData));
+  });
+}
+
+async function resetIfStale(): Promise<void> {
+  await transactionalUpdate((d) => (d.lastResetDate !== todayKey() ? resetCompletion(d) : d));
+}
 
 export function useSchedule() {
   const [data, setData] = useState<ScheduleData | null>(null);
@@ -17,22 +35,15 @@ export function useSchedule() {
     let unsubscribe: (() => void) | undefined;
     let cancelled = false;
 
-    ensureSignedIn().then(() => {
-      if (cancelled) return;
-      unsubscribe = onSnapshot(scheduleDocRef, (snap) => {
-        if (!snap.exists()) {
-          setDoc(scheduleDocRef, buildDefaultSchedule());
-          return;
-        }
-        let d = normalize(snap.data() as ScheduleData);
-        if (d.lastResetDate !== todayKey()) {
-          d = resetCompletion(d);
-          setDoc(scheduleDocRef, d);
-          return;
-        }
-        setData(d);
+    ensureSignedIn()
+      .then(() => resetIfStale())
+      .then(() => {
+        if (cancelled) return;
+        unsubscribe = onSnapshot(scheduleDocRef, (snap) => {
+          if (!snap.exists()) return;
+          setData(normalize(snap.data() as ScheduleData));
+        });
       });
-    });
 
     return () => {
       cancelled = true;
@@ -40,44 +51,47 @@ export function useSchedule() {
     };
   }, []);
 
-  // The reset check above only re-runs when the document actually changes —
-  // a device left open overnight with nobody touching it never gets a new
-  // snapshot, so it can keep showing yesterday's checkmarks well into the
-  // next day. Re-check the date on a timer and whenever the tab/app becomes
-  // visible again, independent of any Firestore write.
+  // The initial check above only runs once, on mount — a device left open
+  // overnight with nobody touching it needs the same check re-run on a
+  // timer and whenever the tab/app becomes visible again, or it can keep
+  // showing yesterday's checkmarks well into the next day.
   useEffect(() => {
-    function checkForNewDay() {
-      const current = dataRef.current;
-      if (current && current.lastResetDate !== todayKey()) {
-        setDoc(scheduleDocRef, resetCompletion(current));
-      }
-    }
-
-    const intervalId = setInterval(checkForNewDay, 60_000);
+    const intervalId = setInterval(resetIfStale, 60_000);
     function onVisibilityChange() {
-      if (document.visibilityState === 'visible') checkForNewDay();
+      if (document.visibilityState === 'visible') resetIfStale();
     }
     document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('focus', checkForNewDay);
+    window.addEventListener('focus', resetIfStale);
 
     return () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('focus', checkForNewDay);
+      window.removeEventListener('focus', resetIfStale);
     };
   }, []);
+
+  // Writes are chained strictly in call order. Each transaction reads fresh
+  // server data, so it's always safe against staleness from OTHER devices —
+  // but without this queue, several transactions fired back-to-back from
+  // THIS device (e.g. fast typing) could commit out of order and a later
+  // keystroke could lose to an earlier one that happened to finish last.
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   function mutate(fn: (d: ScheduleData) => ScheduleData) {
     const current = dataRef.current;
     if (!current) return;
-    const next = fn(current);
-    // Update local state immediately so controlled inputs (item titles, notes,
-    // etc.) reflect keystrokes instantly instead of waiting on the Firestore
+    // Optimistic local update so controlled inputs (item titles, notes, etc.)
+    // reflect keystrokes instantly instead of waiting on the Firestore
     // round-trip — without this, the input's value only changes once the
-    // async write resolves, which resets the cursor to the end on every
-    // keystroke. The write below still syncs it to other devices.
-    setData(next);
-    setDoc(scheduleDocRef, next);
+    // write resolves, which resets the cursor to the end on every keystroke.
+    setData(fn(current));
+    // The actual persisted write reads fresh server data and applies fn to
+    // that, so it can't clobber another device's concurrent edit.
+    writeQueueRef.current = writeQueueRef.current
+      .then(() => transactionalUpdate(fn))
+      .catch((err) => {
+        console.error('Failed to save change:', err);
+      });
   }
 
   function updateCategory(categoryId: string, fn: (cat: Category) => Category) {
