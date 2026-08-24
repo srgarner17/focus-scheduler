@@ -17,6 +17,7 @@ export function normalize(data: ScheduleData): ScheduleData {
       items: cat.items.map((it) => ({
         ...it,
         days: Array.isArray(it.days) ? it.days : ALL_DAYS,
+        date: typeof it.date === 'string' ? it.date : '',
       })),
     })),
   };

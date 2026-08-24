@@ -12,7 +12,8 @@ export interface ScheduleItem {
   notes: string; // free-text tip shown to help him get it right
   subSteps: SubStep[];
   done: boolean; // used directly only when subSteps is empty
-  days: number[]; // which days this item is active: 0=Sun..6=Sat (matches Date#getDay())
+  days: number[]; // which days this item is active: 0=Sun..6=Sat (matches Date#getDay()) — ignored when `date` is set
+  date: string; // YYYY-MM-DD — when set, this is a one-time item active only on that exact date, never repeats
 }
 
 export interface Category {
@@ -41,7 +42,10 @@ export function isItemDone(item: ScheduleItem): boolean {
 
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
-export function isItemActiveOnDay(item: ScheduleItem, dayIndex: number): boolean {
+// One-time items (item.date set) are active only on that exact calendar date
+// and ignore `days` entirely. Recurring items are matched by weekday.
+export function isItemScheduledOn(item: ScheduleItem, dateKey: string, dayIndex: number): boolean {
+  if (item.date) return item.date === dateKey;
   return item.days.includes(dayIndex);
 }
 

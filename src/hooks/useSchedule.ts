@@ -120,6 +120,7 @@ export function useSchedule() {
       subSteps: [],
       done: false,
       days: ALL_DAYS,
+      date: '',
     };
     updateCategory(categoryId, (c) => ({ ...c, items: [...c.items, newItem] }));
     return newItem.id;
@@ -128,7 +129,7 @@ export function useSchedule() {
   function updateItemMeta(
     categoryId: string,
     itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days'>>,
+    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days' | 'date'>>,
   ) {
     updateItem(categoryId, itemId, (it) => ({ ...it, ...patch }));
   }
