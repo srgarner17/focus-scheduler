@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { ScheduleItem } from '../types';
-import { ALL_DAYS, isItemActiveOnDay, isItemDone } from '../types';
+import { ALL_DAYS, isItemDone, isItemScheduledOn } from '../types';
 import type { ColorStyle } from '../lib/colors';
-import { todayDayIndex } from '../lib/date';
+import { formatDateShort, todayDayIndex, todayKey } from '../lib/date';
 import { DayPicker } from './DayPicker';
 
 interface Props {
@@ -15,7 +15,7 @@ interface Props {
   updateItemMeta: (
     categoryId: string,
     itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days'>>,
+    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days' | 'date'>>,
   ) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
@@ -40,8 +40,9 @@ export function ItemCard({
   const [newSubStep, setNewSubStep] = useState('');
   const done = isItemDone(item);
   const hasDetails = item.subSteps.length > 0 || item.notes.trim().length > 0;
-  const activeToday = isItemActiveOnDay(item, todayDayIndex());
+  const activeToday = isItemScheduledOn(item, todayKey(), todayDayIndex());
   const everyDay = item.days.length === ALL_DAYS.length;
+  const isOneTime = Boolean(item.date);
 
   function submitNewSubStep() {
     const text = newSubStep.trim();
@@ -98,8 +99,12 @@ export function ItemCard({
                 className="w-24 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
                 placeholder="Time"
               />
-              {!everyDay && (
-                <span className="text-xs text-black/40 dark:text-white/40">not every day</span>
+              {isOneTime ? (
+                <span className="text-xs text-black/40 dark:text-white/40">
+                  one-time · {formatDateShort(item.date)}
+                </span>
+              ) : (
+                !everyDay && <span className="text-xs text-black/40 dark:text-white/40">not every day</span>
               )}
             </div>
           ) : (
@@ -107,6 +112,9 @@ export function ItemCard({
               <span className="text-xl leading-none">{item.emoji}</span>
               <span className={`font-semibold ${done ? 'line-through opacity-60' : ''}`}>{item.title}</span>
               {item.time && <span className="text-xs text-black/50 dark:text-white/50">{item.time}</span>}
+              {isOneTime && (
+                <span className="text-xs text-black/40 dark:text-white/40">{formatDateShort(item.date)}</span>
+              )}
             </div>
           )}
           {!editMode && item.subSteps.length > 0 && (
@@ -131,13 +139,43 @@ export function ItemCard({
       {expanded && (
         <div className="px-4 pb-4 pl-[4.25rem] space-y-3">
           {editMode && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-black/50 dark:text-white/50">Active days</p>
-              <DayPicker
-                days={item.days}
-                onChange={(days) => updateItemMeta(categoryId, item.id, { days })}
-                chipClass={color.chip}
-              />
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => updateItemMeta(categoryId, item.id, { date: '' })}
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    !isOneTime ? `${color.chip} text-white` : 'bg-black/5 text-black/50 dark:bg-white/10 dark:text-white/50'
+                  }`}
+                >
+                  Repeats weekly
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateItemMeta(categoryId, item.id, { date: item.date || todayKey() })
+                  }
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    isOneTime ? `${color.chip} text-white` : 'bg-black/5 text-black/50 dark:bg-white/10 dark:text-white/50'
+                  }`}
+                >
+                  One-time
+                </button>
+              </div>
+              {isOneTime ? (
+                <input
+                  type="date"
+                  value={item.date}
+                  onChange={(e) => updateItemMeta(categoryId, item.id, { date: e.target.value })}
+                  className="rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
+                />
+              ) : (
+                <DayPicker
+                  days={item.days}
+                  onChange={(days) => updateItemMeta(categoryId, item.id, { days })}
+                  chipClass={color.chip}
+                />
+              )}
             </div>
           )}
           {editMode ? (

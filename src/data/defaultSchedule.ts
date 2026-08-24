@@ -18,6 +18,7 @@ function item(
     notes,
     done: false,
     days,
+    date: '',
     subSteps: subSteps.map((text) => ({ id: makeId(), text, done: false })),
   };
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSchedule } from './hooks/useSchedule';
-import { isItemActiveOnDay, isItemDone } from './types';
-import { friendlyDate, todayDayIndex } from './lib/date';
+import { isItemDone, isItemScheduledOn } from './types';
+import { friendlyDate, todayDayIndex, todayKey } from './lib/date';
 import { CategorySection } from './components/CategorySection';
 import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
@@ -46,7 +46,10 @@ function App() {
 
   const data = s.data;
   const today = todayDayIndex();
-  const allItems = data.categories.flatMap((c) => c.items).filter((it) => isItemActiveOnDay(it, today));
+  const todayDateKey = todayKey();
+  const allItems = data.categories
+    .flatMap((c) => c.items)
+    .filter((it) => isItemScheduledOn(it, todayDateKey, today));
   const totalCount = allItems.length;
   const doneCount = allItems.filter(isItemDone).length;
   const percent = totalCount === 0 ? 0 : (doneCount / totalCount) * 100;

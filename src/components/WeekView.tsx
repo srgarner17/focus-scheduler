@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { Category } from '../types';
-import { DAY_LABELS, DAY_NAMES, isItemActiveOnDay } from '../types';
+import { DAY_LABELS, DAY_NAMES, isItemScheduledOn } from '../types';
 import { colorStyles } from '../lib/colors';
+import { currentWeekDateKeys, formatDateShort } from '../lib/date';
 
 interface Props {
   categories: Category[];
@@ -10,9 +11,13 @@ interface Props {
 
 export function WeekView({ categories, todayIndex }: Props) {
   const [selectedDay, setSelectedDay] = useState(todayIndex);
+  const weekDateKeys = currentWeekDateKeys();
 
   const dayCategories = categories
-    .map((c) => ({ ...c, items: c.items.filter((it) => isItemActiveOnDay(it, selectedDay)) }))
+    .map((c) => ({
+      ...c,
+      items: c.items.filter((it) => isItemScheduledOn(it, weekDateKeys[selectedDay], selectedDay)),
+    }))
     .filter((c) => c.items.length > 0);
 
   const totalForDay = dayCategories.reduce((sum, c) => sum + c.items.length, 0);
@@ -21,7 +26,7 @@ export function WeekView({ categories, todayIndex }: Props) {
     <div className="space-y-6">
       <div className="grid grid-cols-7 gap-1.5">
         {DAY_LABELS.map((label, i) => {
-          const dotCats = categories.filter((c) => c.items.some((it) => isItemActiveOnDay(it, i)));
+          const dotCats = categories.filter((c) => c.items.some((it) => isItemScheduledOn(it, weekDateKeys[i], i)));
           const isSelected = selectedDay === i;
           const isToday = todayIndex === i;
           return (
@@ -85,6 +90,9 @@ export function WeekView({ categories, todayIndex }: Props) {
                     <span className="text-lg leading-none">{it.emoji}</span>
                     <span className="flex-1 font-medium">{it.title}</span>
                     {it.time && <span className="text-xs text-black/50 dark:text-white/50">{it.time}</span>}
+                    {it.date && (
+                      <span className="text-xs text-black/40 dark:text-white/40">{formatDateShort(it.date)}</span>
+                    )}
                     {it.subSteps.length > 0 && (
                       <span className="text-xs text-black/40 dark:text-white/40">{it.subSteps.length} steps</span>
                     )}

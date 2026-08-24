@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Category, ScheduleItem } from '../types';
-import { isItemActiveOnDay, isItemDone } from '../types';
+import { isItemDone, isItemScheduledOn } from '../types';
 import { colorStyles } from '../lib/colors';
-import { todayDayIndex } from '../lib/date';
+import { todayDayIndex, todayKey } from '../lib/date';
 import { ProgressBar } from './ProgressBar';
 import { ItemCard } from './ItemCard';
 
@@ -17,7 +17,7 @@ interface Props {
   updateItemMeta: (
     categoryId: string,
     itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days'>>,
+    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days' | 'date'>>,
   ) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
@@ -41,7 +41,8 @@ export function CategorySection({
 }: Props) {
   const color = colorStyles[category.color];
   const today = todayDayIndex();
-  const activeItems = category.items.filter((it) => isItemActiveOnDay(it, today));
+  const todayDateKey = todayKey();
+  const activeItems = category.items.filter((it) => isItemScheduledOn(it, todayDateKey, today));
   const displayedItems = editMode ? category.items : activeItems;
   const total = activeItems.length;
   const doneCount = activeItems.filter(isItemDone).length;
