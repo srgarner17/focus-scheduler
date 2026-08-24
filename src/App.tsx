@@ -67,8 +67,8 @@ function App() {
           onCancel={() => setPinPromptOpen(false)}
         />
       )}
-      <div className="mx-auto max-w-xl px-4 pb-24 pt-6 sm:pt-10">
-        <header className="mb-6 space-y-4">
+      <div className="mx-auto max-w-xl px-4 pb-24 pt-6 sm:pt-10 lg:max-w-5xl xl:max-w-6xl">
+        <header className="mb-6 space-y-4 lg:mx-auto lg:max-w-xl">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm text-black/50 dark:text-white/50">{friendlyDate()}</p>
@@ -138,11 +138,13 @@ function App() {
           )}
         </header>
 
-        <main className="space-y-8">
+        <main>
           {view === 'week' ? (
-            <WeekView categories={data.categories} todayIndex={today} />
+            <div className="lg:mx-auto lg:max-w-xl">
+              <WeekView categories={data.categories} todayIndex={today} />
+            </div>
           ) : (
-            <>
+            <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-x-10 xl:grid-cols-3">
               {data.categories.map((category) => (
                 <CategorySection
                   key={category.id}
@@ -164,16 +166,16 @@ function App() {
               {editMode && <AddCategory onAdd={s.addCategory} />}
 
               {data.categories.length === 0 && !editMode && (
-                <p className="text-center text-black/40 dark:text-white/40">
+                <p className="text-center text-black/40 dark:text-white/40 lg:col-span-full">
                   Nothing scheduled yet. Tap "Edit" to add a category.
                 </p>
               )}
-            </>
+            </div>
           )}
         </main>
 
         {view === 'today' && editMode && (
-          <div className="mt-8 space-y-4 border-t border-black/10 dark:border-white/10 pt-4">
+          <div className="mt-8 space-y-4 border-t border-black/10 dark:border-white/10 pt-4 lg:mx-auto lg:max-w-xl">
             <div>
               <p className="mb-1 text-sm font-medium">Parent PIN</p>
               {data.editPin ? (
