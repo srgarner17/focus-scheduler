@@ -9,7 +9,7 @@ A living list of what's next and open for Focus Plan, the daily checklist app fo
 If this session drops, here's exactly where things stand and how to pick back up.
 
 - **Working tree:** clean, nothing uncommitted anywhere.
-- **`master`** has everything merged through PR #11 (landscape/wide-screen category grid). Nothing outstanding.
+- **`master`** has everything merged through PR #13 (transaction-based writes, fixing the data-loss bug where a stale device could overwrite concurrent edits from other devices). Nothing outstanding.
 - **Canonical URL:** https://srgarner17.github.io/focus-scheduler/ (GitHub Pages). Vercel (https://focus-scheduler-sand.vercel.app/) is a working backup, not primary.
 - **Data is shared and synced** — both parents' devices and the iPad read/write the same Firebase Firestore document in real time. There is no separate "test" environment; every deployment (prod or PR preview) hits the same real household data.
 - **Immediate next action:** none blocking — natural pause point. Next up whenever ready: reordering, or the new "links in item descriptions" idea below (see [Next steps](#next-steps)).
@@ -49,10 +49,15 @@ Scoped 2026-08-24, not yet started. Full plan so a future session can start stra
 ## Next steps
 
 1. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
-2. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
-3. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.
-4. **Automated test suite** — see [Automated testing scope](#automated-testing-scope-ready-to-pick-up-later) above; fully scoped and ready to start.
-5. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
+2. **Eliminate potential lost work when editing** — scoped 2026-08-24, not started, discussed after fixing the data-loss bug in PR #13. Right now every field change while editing an item (each keystroke, each toggle) writes to Firestore immediately, which is chatty and means other devices see a title flicker letter-by-letter while someone's mid-edit. Proposed design:
+   - Expanding an item for editing (new or existing) starts a local draft — title, emoji, time, notes, days/date, sub-steps all live in local component state only while it's being worked on. No writes fire as fields change within that panel.
+   - A **Done** button commits the whole draft as a single write when finished with that item.
+   - Collapsing the panel any other way (the chevron, exiting Edit mode entirely) also auto-saves whatever's there, so "Done" is the expected path but not the *only* safe one — nothing is silently lost by navigating away without remembering to tap it.
+   - Known tradeoff: if two parents happened to edit the exact same item within the same few seconds, whoever commits last wins for that item — same last-write-wins semantics as any other editor, not expected to need special handling given how unlikely that overlap is.
+3. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
+4. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.
+5. **Automated test suite** — see [Automated testing scope](#automated-testing-scope-ready-to-pick-up-later) above; fully scoped and ready to start.
+6. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
 
 ## Quick reference
 
