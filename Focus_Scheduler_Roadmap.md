@@ -37,8 +37,33 @@ If this session drops, here's exactly where things stand and how to pick back up
 
 ## Open decisions
 
-- **Automated tests.** Everything so far has been verified manually (throwaway Firestore test document + browser automation) before each commit — there's no repeatable automated suite, so nothing currently guards against a future change silently breaking something already fixed once. Proposed: Vitest for the logic-heavy pieces (scheduling/date functions, the sync hook's mutations) plus maybe React Testing Library for key component behavior. Not yet scoped or started — waiting on priority call against the feature list below.
+- **Automated tests.** Everything so far has been verified manually (throwaway Firestore test document + browser automation) before each commit — there's no repeatable automated suite, so nothing currently guards against a future change silently breaking something already fixed once. Scoped below, deliberately not started yet — pick up whenever it's prioritized against the feature list below.
 - **Notifications (two-way).** Parents want to know when something is/isn't done by a certain time. Deferred — needs real design thinking (what counts as "on time," how a parent gets notified when the app isn't open) before it's even scoped, and technically needs Firebase Cloud Functions, which requires the paid Blaze tier rather than the free Spark plan currently in use.
+
+## Automated testing scope (ready to pick up later)
+
+Scoped 2026-08-24, not yet started. Full plan so a future session can start straight into implementation instead of re-deriving this.
+
+**Tooling:** Vitest (Vite-native, shares existing config, fast) + React Testing Library + jsdom for anything that renders. For Firestore-dependent code, **mock the SDK** (`onSnapshot`, `setDoc`) rather than run the Firebase Local Emulator Suite — the emulator is more realistic but needs a Java runtime and real setup overhead; mocking is enough to test our own logic.
+
+**Tier 1 — pure functions, no mocking (cheapest, highest value, do first):**
+- `lib/date.ts` — `todayKey`, `currentWeekDateKeys`, `formatDateShort`. Timezone/date-boundary bugs are exactly the kind that fail silently.
+- `types.ts` — `isItemDone`, `isItemScheduledOn`. The core scheduling-match logic; a regression here misfires silently (wrong day, or no day).
+- `lib/storage.ts` — `normalize` (migration) and `resetCompletion`, tested against old/malformed data shapes so migrations keep working as the schema grows.
+
+**Tier 2 — the `useSchedule` hook, Firestore mocked (medium effort, highest payoff — covers real bugs already hit):**
+- Regression test for the cursor-jump bug: assert `mutate()` updates local state synchronously, not only after the mocked async write resolves.
+- Regression test for the overnight-reset bug: inject a fake clock, confirm the timer/focus-triggered check resets a stale `lastResetDate`.
+- Sanity coverage for `toggleItem`, `addItem`, `deleteItem`, etc.
+
+**Tier 3 — component behavior (capped scope, don't chase full coverage):**
+- `CategorySection` — auto-collapse fires when complete, resets when not.
+- `ItemCard` — recurring/one-time toggle switches correctly.
+- Deliberately skip presentational-only components (`ProgressBar`, `DayPicker` rendering).
+
+**Explicitly out of scope for now:** Firestore emulator / security-rule testing (rules are trivial today), end-to-end browser tests via Playwright (defer unless a class of bug keeps slipping past unit tests), visual regression testing (overkill at this scale).
+
+**CI:** once tests exist, add a `test.yml` GitHub Actions workflow that runs on every pull request (not just push to `master`), so a broken test blocks a bad PR before merge — pairs naturally with the branch protection already in place.
 
 ## Next steps
 
@@ -47,7 +72,7 @@ Prioritized list from the latest round of family feedback (weekend of 2026-08-22
 1. **Landscape iPad layout** — the app is a single narrow centered column even on a wide screen; needs a layout that uses the horizontal space on a landscape-oriented iPad.
 2. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
 3. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.
-4. **Automated test suite** — see Open decisions above.
+4. **Automated test suite** — see [Automated testing scope](#automated-testing-scope-ready-to-pick-up-later) above; fully scoped and ready to start.
 5. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
 
 ## Quick reference
