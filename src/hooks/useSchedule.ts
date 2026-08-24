@@ -40,6 +40,33 @@ export function useSchedule() {
     };
   }, []);
 
+  // The reset check above only re-runs when the document actually changes —
+  // a device left open overnight with nobody touching it never gets a new
+  // snapshot, so it can keep showing yesterday's checkmarks well into the
+  // next day. Re-check the date on a timer and whenever the tab/app becomes
+  // visible again, independent of any Firestore write.
+  useEffect(() => {
+    function checkForNewDay() {
+      const current = dataRef.current;
+      if (current && current.lastResetDate !== todayKey()) {
+        setDoc(scheduleDocRef, resetCompletion(current));
+      }
+    }
+
+    const intervalId = setInterval(checkForNewDay, 60_000);
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') checkForNewDay();
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', checkForNewDay);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', checkForNewDay);
+    };
+  }, []);
+
   function mutate(fn: (d: ScheduleData) => ScheduleData) {
     const current = dataRef.current;
     if (!current) return;
