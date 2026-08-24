@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { Category, ScheduleItem } from '../types';
 import { isItemActiveOnDay, isItemDone } from '../types';
 import { colorStyles } from '../lib/colors';
@@ -45,6 +46,17 @@ export function CategorySection({
   const total = activeItems.length;
   const doneCount = activeItems.filter(isItemDone).length;
   const percent = total === 0 ? 0 : (doneCount / total) * 100;
+  const allDone = total > 0 && doneCount === total;
+
+  // Auto-collapse once everything's checked off, but let the user reopen it
+  // to review. Reset the override whenever the category has fresh, unfinished
+  // work again (new day, item added, something unchecked) so the next time
+  // it's completed, it collapses fresh instead of staying stuck open.
+  const [userExpanded, setUserExpanded] = useState(false);
+  useEffect(() => {
+    if (!allDone) setUserExpanded(false);
+  }, [allDone]);
+  const collapsed = !editMode && allDone && !userExpanded;
 
   return (
     <section className="space-y-3">
@@ -78,31 +90,45 @@ export function CategorySection({
             </span>
           </div>
         </div>
-      </div>
-
-      <div className="space-y-2">
-        {displayedItems.map((item) => (
-          <ItemCard
-            key={item.id}
-            categoryId={category.id}
-            item={item}
-            color={color}
-            editMode={editMode}
-            toggleItem={toggleItem}
-            toggleSubStep={toggleSubStep}
-            updateItemMeta={updateItemMeta}
-            deleteItem={deleteItem}
-            addSubStep={addSubStep}
-            updateSubStepText={updateSubStepText}
-            deleteSubStep={deleteSubStep}
-          />
-        ))}
-        {displayedItems.length === 0 && !editMode && (
-          <p className="text-sm text-black/40 dark:text-white/40 italic px-1">
-            {category.items.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}
-          </p>
+        {allDone && !editMode && (
+          <button
+            type="button"
+            aria-label={collapsed ? 'Expand section' : 'Collapse section'}
+            onClick={() => setUserExpanded((v) => !v)}
+            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-black/40 hover:bg-black/5 dark:text-white/40 dark:hover:bg-white/10"
+          >
+            <span className={`inline-block transition-transform ${collapsed ? '' : 'rotate-180'}`}>⌄</span>
+          </button>
         )}
       </div>
+
+      {collapsed ? (
+        <p className="px-1 text-sm text-black/40 dark:text-white/40">All done — tap to review 🎉</p>
+      ) : (
+        <div className="space-y-2">
+          {displayedItems.map((item) => (
+            <ItemCard
+              key={item.id}
+              categoryId={category.id}
+              item={item}
+              color={color}
+              editMode={editMode}
+              toggleItem={toggleItem}
+              toggleSubStep={toggleSubStep}
+              updateItemMeta={updateItemMeta}
+              deleteItem={deleteItem}
+              addSubStep={addSubStep}
+              updateSubStepText={updateSubStepText}
+              deleteSubStep={deleteSubStep}
+            />
+          ))}
+          {displayedItems.length === 0 && !editMode && (
+            <p className="text-sm text-black/40 dark:text-white/40 italic px-1">
+              {category.items.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}
+            </p>
+          )}
+        </div>
+      )}
 
       {editMode && (
         <div className="flex items-center gap-3 px-1">
