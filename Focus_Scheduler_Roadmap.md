@@ -9,7 +9,7 @@ A living list of what's next and open for Focus Plan, the daily checklist app fo
 If this session drops, here's exactly where things stand and how to pick back up.
 
 - **Working tree:** clean, nothing uncommitted anywhere.
-- **`master`** has everything merged through PR #17 (scoped the editing UX redesign). PR #18 (resequencing tests before that redesign) is open, merge blocked in this session by the auto-mode classifier — needs a manual merge. Nothing else outstanding.
+- **`master`** has everything merged through PR #18 (resequenced tests before the editing UX redesign). Nothing else outstanding on master.
 - **Canonical URL:** https://srgarner17.github.io/focus-scheduler/ (GitHub Pages). Vercel (https://focus-scheduler-sand.vercel.app/) is a working backup, not primary.
 - **Data is shared and synced** — both parents' devices and the iPad read/write the same Firebase Firestore document in real time. There is no separate "test" environment; every deployment (prod or PR preview) hits the same real household data.
 - **Immediate next action:** [PR #19](https://github.com/srgarner17/focus-scheduler/pull/19) adds Tier 1 of the automated test suite (Vitest + RTL + jsdom installed, 21 tests for `lib/date.ts`/`types.ts`/`lib/storage.ts`, CI workflow running on every PR) — open, awaiting review/merge. Tier 2 (the `useSchedule` hook, Firestore mocked) is the natural next pickup — see [Automated testing scope](#automated-testing-scope). The **editing UX redesign** is fully scoped and queued up after the test suite — see [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later).
