@@ -12,18 +12,18 @@ If this session drops, here's exactly where things stand and how to pick back up
 - **`master`** has everything merged through PR #18 (resequenced tests before the editing UX redesign). Nothing else outstanding on master.
 - **Canonical URL:** https://srgarner17.github.io/focus-scheduler/ (GitHub Pages). Vercel (https://focus-scheduler-sand.vercel.app/) is a working backup, not primary.
 - **Data is shared and synced** — both parents' devices and the iPad read/write the same Firebase Firestore document in real time. There is no separate "test" environment; every deployment (prod or PR preview) hits the same real household data.
-- **Immediate next action:** [PR #19](https://github.com/srgarner17/focus-scheduler/pull/19) adds Tier 1 of the automated test suite (Vitest + RTL + jsdom installed, 21 tests for `lib/date.ts`/`types.ts`/`lib/storage.ts`, CI workflow running on every PR) — open, awaiting review/merge. Tier 2 (the `useSchedule` hook, Firestore mocked) is the natural next pickup — see [Automated testing scope](#automated-testing-scope). The **editing UX redesign** is fully scoped and queued up after the test suite — see [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later).
+- **Immediate next action:** Tier 1 ([PR #19](https://github.com/srgarner17/focus-scheduler/pull/19), merged) and Tier 2 of the automated test suite (`useSchedule` hook, PR open — see below) are done. Tier 3 (`CategorySection`/`ItemCard` component behavior) is the natural next pickup — see [Automated testing scope](#automated-testing-scope). The **editing UX redesign** is fully scoped and queued up after the test suite — see [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later).
 - **Repo state:** public, branch protection on `master` (PR required, admin bypass allowed), feature-branch workflow is the standing default. A new Claude Code session in this repo already has this saved in memory and shouldn't need re-explaining.
 - **Working style note:** build one item at a time, verify it, open its PR, then stop and wait rather than chaining multiple features together unprompted. Update this roadmap proactively after merges, not just when asked.
 
 ## Open decisions
 
-- **Automated tests.** Tier 1 (pure functions) is done and running in CI on every PR — see below. Tier 2/3 (the `useSchedule` hook and component behavior) are scoped but not started yet.
+- **Automated tests.** Tier 1 (pure functions) and Tier 2 (the `useSchedule` hook) are done and running in CI on every PR — see below. Tier 3 (component behavior) is scoped but not started yet.
 - **Notifications (two-way).** Parents want to know when something is/isn't done by a certain time. Deferred — needs real design thinking (what counts as "on time," how a parent gets notified when the app isn't open) before it's even scoped, and technically needs Firebase Cloud Functions, which requires the paid Blaze tier rather than the free Spark plan currently in use.
 
 ## Automated testing scope
 
-Scoped 2026-08-24. Tier 1 done 2026-08-25; Tiers 2-3 still ready to pick up.
+Scoped 2026-08-24. Tiers 1-2 done 2026-08-25; Tier 3 still ready to pick up.
 
 **Tooling:** Vitest (Vite-native, shares existing config, fast) + React Testing Library + jsdom for anything that renders. For Firestore-dependent code, **mock the SDK** (`onSnapshot`, `setDoc`) rather than run the Firebase Local Emulator Suite — the emulator is more realistic but needs a Java runtime and real setup overhead; mocking is enough to test our own logic.
 
@@ -33,10 +33,11 @@ Scoped 2026-08-24. Tier 1 done 2026-08-25; Tiers 2-3 still ready to pick up.
 - `lib/storage.ts` — `normalize` (migration) and `resetCompletion`, tested against old/malformed data shapes so migrations keep working as the schema grows. `firebase/firestore` and `./firebase` are mocked in this test file so importing `storage.ts` doesn't trigger a real Firestore client in jsdom.
 - Runs via `npm run test` (or `npm run test:watch`), and in CI on every PR via `.github/workflows/test.yml`.
 
-**Tier 2 — the `useSchedule` hook, Firestore mocked (medium effort, highest payoff — covers real bugs already hit):**
-- Regression test for the cursor-jump bug: assert `mutate()` updates local state synchronously, not only after the mocked async write resolves.
-- Regression test for the overnight-reset bug: inject a fake clock, confirm the timer/focus-triggered check resets a stale `lastResetDate`.
-- Sanity coverage for `toggleItem`, `addItem`, `deleteItem`, etc.
+**Tier 2 — the `useSchedule` hook, Firestore mocked (done 2026-08-25, 5 tests):**
+- Regression test for the cursor-jump bug: asserts `mutate()` updates local state synchronously, in the same tick as the call, not only after the mocked async transaction resolves.
+- Regression test for the overnight-reset bug: fakes only `Date` (real timers otherwise), fires a `focus` event a day later, confirms the transaction resets a stale `lastResetDate` and completion state.
+- Sanity coverage for `toggleItem` (including the all-sub-steps-together case), `addItem`/`deleteItem`, and same-device write ordering.
+- `firebase/firestore`'s `onSnapshot`/`runTransaction`/`doc` are mocked with a small in-memory "server document," rather than the Firebase Local Emulator Suite.
 
 **Tier 3 — component behavior (capped scope, don't chase full coverage):**
 - `CategorySection` — auto-collapse fires when complete, resets when not.
@@ -67,7 +68,7 @@ Scoped 2026-08-25, not yet started. The current draft/Done-button mechanism (PRs
 
 ## Next steps
 
-1. **Automated test suite, Tier 2 & 3** — see [Automated testing scope](#automated-testing-scope) above; Tier 1 is done (2026-08-25). Written against public/observable behavior rather than internal implementation details, so these survive the editing UX redesign below and double as a regression safety net for it.
+1. **Automated test suite, Tier 3** — see [Automated testing scope](#automated-testing-scope) above; Tiers 1-2 are done (2026-08-25). Written against public/observable behavior rather than internal implementation details, so these survive the editing UX redesign below and double as a regression safety net for it.
 2. **Editing UX redesign** — see [full scope](#editing-ux-redesign-ready-to-pick-up-later) below. Replaces the draft/Done-button mechanism (shipped and working, PRs #15–16) with autosave + a sync-status indicator, removing the state layer that's caused most of the recent bugs rather than continuing to patch it. Picked up after the test suite lands.
 3. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
 4. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
