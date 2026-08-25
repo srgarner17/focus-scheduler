@@ -1,0 +1,97 @@
+import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { CategorySection } from './CategorySection';
+import type { Category, ScheduleItem } from '../types';
+import { ALL_DAYS } from '../types';
+
+function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
+  return {
+    id: 'item-1',
+    title: 'Test item',
+    emoji: '✅',
+    time: '',
+    notes: '',
+    subSteps: [],
+    done: false,
+    days: ALL_DAYS,
+    date: '',
+    ...overrides,
+  };
+}
+
+function makeCategory(items: ScheduleItem[]): Category {
+  return {
+    id: 'cat-1',
+    name: 'Chores',
+    emoji: '🧹',
+    color: 'blue',
+    items,
+  };
+}
+
+function noop() {}
+
+const baseProps = {
+  editMode: false,
+  toggleItem: noop,
+  toggleSubStep: noop,
+  updateCategoryMeta: noop,
+  deleteCategory: noop,
+  addItem: noop,
+  updateItemMeta: noop,
+  deleteItem: noop,
+  addSubStep: noop,
+  updateSubStepText: noop,
+  deleteSubStep: noop,
+};
+
+describe('CategorySection auto-collapse', () => {
+  it('collapses automatically once every item is done', () => {
+    render(<CategorySection category={makeCategory([makeItem({ done: true })])} {...baseProps} />);
+    expect(screen.getByText(/all done/i)).toBeInTheDocument();
+    expect(screen.queryByText('Test item')).not.toBeInTheDocument();
+  });
+
+  it('stays expanded while there is unfinished work', () => {
+    render(<CategorySection category={makeCategory([makeItem({ done: false })])} {...baseProps} />);
+    expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Test item')).toBeInTheDocument();
+  });
+
+  it('lets the user reopen a collapsed section, then re-collapses fresh the next time it completes', () => {
+    const doneCategory = makeCategory([makeItem({ id: 'a', title: 'Item A', done: true })]);
+    const { rerender } = render(<CategorySection category={doneCategory} {...baseProps} />);
+    expect(screen.getByText(/all done/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /expand section/i }));
+    expect(screen.getByText('Item A')).toBeInTheDocument();
+
+    // New unfinished work arrives (e.g. a second item added) — this should
+    // reset the "stay expanded" override even without the user manually
+    // collapsing it themselves.
+    const freshCategory = makeCategory([
+      makeItem({ id: 'a', title: 'Item A', done: true }),
+      makeItem({ id: 'b', title: 'Item B', done: false }),
+    ]);
+    rerender(<CategorySection category={freshCategory} {...baseProps} />);
+    expect(screen.getByText('Item A')).toBeInTheDocument();
+    expect(screen.getByText('Item B')).toBeInTheDocument();
+
+    // Finishing the new item should collapse the section fresh, not
+    // remember the earlier manual expand.
+    const doneAgain = makeCategory([
+      makeItem({ id: 'a', title: 'Item A', done: true }),
+      makeItem({ id: 'b', title: 'Item B', done: true }),
+    ]);
+    rerender(<CategorySection category={doneAgain} {...baseProps} />);
+    expect(screen.getByText(/all done/i)).toBeInTheDocument();
+    expect(screen.queryByText('Item A')).not.toBeInTheDocument();
+  });
+
+  it('never auto-collapses while in edit mode, even when everything is done', () => {
+    render(<CategorySection category={makeCategory([makeItem({ done: true })])} {...baseProps} editMode />);
+    expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
+    // In edit mode the title renders as an editable input, not plain text.
+    expect(screen.getByDisplayValue('Test item')).toBeInTheDocument();
+  });
+});
