@@ -1,9 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ScheduleItem } from '../types';
 import { ALL_DAYS, isItemDone, isItemScheduledOn } from '../types';
 import type { ColorStyle } from '../lib/colors';
 import { formatDateShort, todayDayIndex, todayKey } from '../lib/date';
 import { DayPicker } from './DayPicker';
+
+type DraftFields = Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days' | 'date'>;
+
+interface Draft {
+  values: DraftFields;
+  dirty: Partial<Record<keyof DraftFields, true>>;
+  subStepTexts: Record<string, string>; // subStepId -> edited text; presence means dirty
+}
+
+function makeDraft(item: ScheduleItem): Draft {
+  return {
+    values: { title: item.title, emoji: item.emoji, time: item.time, notes: item.notes, days: item.days, date: item.date },
+    dirty: {},
+    subStepTexts: {},
+  };
+}
 
 interface Props {
   categoryId: string;
@@ -12,11 +28,7 @@ interface Props {
   editMode: boolean;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
-  updateItemMeta: (
-    categoryId: string,
-    itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days' | 'date'>>,
-  ) => void;
+  updateItemMeta: (categoryId: string, itemId: string, patch: Partial<DraftFields>) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
   updateSubStepText: (categoryId: string, itemId: string, subStepId: string, text: string) => void;
@@ -38,11 +50,79 @@ export function ItemCard({
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [newSubStep, setNewSubStep] = useState('');
+  // Field edits are buffered here while editing, and only written to Firestore
+  // when the item is collapsed, "Done" is tapped, or edit mode is exited —
+  // never per keystroke. This avoids the write-per-keystroke race that let a
+  // slow-to-confirm earlier transaction "rewind" text over faster local
+  // typing, and only ever patches the specific fields actually touched, so a
+  // concurrent edit to some other field on this item from another device
+  // isn't clobbered by an unrelated commit.
+  const [draft, setDraft] = useState<Draft | null>(() => (editMode ? makeDraft(item) : null));
+  // Kept in sync with `draft` on every render so the effect cleanup below can
+  // read the latest value directly. React 18+ silently no-ops a setState
+  // call made from a cleanup that's running because the component is
+  // unmounting (no warning, nothing happens) — and this item unmounts the
+  // instant edit mode ends if it isn't scheduled for today, in the very same
+  // render as the exit. Piggybacking the commit on a setDraft callback lost
+  // it silently in exactly that case; reading a ref works regardless of
+  // whether the component is still considered mounted.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  useEffect(() => {
+    if (!editMode) return;
+    setDraft((d) => d ?? makeDraft(item));
+    return () => {
+      const d = draftRef.current;
+      if (d) commitDraft(d);
+      setDraft(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode]);
+
   const done = isItemDone(item);
   const hasDetails = item.subSteps.length > 0 || item.notes.trim().length > 0;
   const activeToday = isItemScheduledOn(item, todayKey(), todayDayIndex());
-  const everyDay = item.days.length === ALL_DAYS.length;
   const isOneTime = Boolean(item.date);
+
+  const activeDraft = draft ?? makeDraft(item);
+  const draftIsOneTime = Boolean(activeDraft.values.date);
+  const draftEveryDay = activeDraft.values.days.length === ALL_DAYS.length;
+
+  function setField<K extends keyof DraftFields>(key: K, value: DraftFields[K]) {
+    setDraft((d) => {
+      const base = d ?? makeDraft(item);
+      return { ...base, values: { ...base.values, [key]: value }, dirty: { ...base.dirty, [key]: true } };
+    });
+  }
+
+  function setSubStepDraftText(subStepId: string, text: string) {
+    setDraft((d) => {
+      const base = d ?? makeDraft(item);
+      return { ...base, subStepTexts: { ...base.subStepTexts, [subStepId]: text } };
+    });
+  }
+
+  function commitDraft(d: Draft) {
+    const patch: Partial<DraftFields> = {};
+    (Object.keys(d.dirty) as (keyof DraftFields)[]).forEach((key) => {
+      (patch as Record<string, unknown>)[key] = d.values[key];
+    });
+    if (Object.keys(patch).length > 0) {
+      updateItemMeta(categoryId, item.id, patch);
+    }
+    Object.entries(d.subStepTexts).forEach(([subStepId, text]) => {
+      updateSubStepText(categoryId, item.id, subStepId, text);
+    });
+  }
+
+  function finishEditing() {
+    if (draft) {
+      commitDraft(draft);
+      setDraft(makeDraft(item));
+    }
+    setExpanded(false);
+  }
 
   function submitNewSubStep() {
     const text = newSubStep.trim();
@@ -75,36 +155,40 @@ export function ItemCard({
         <button
           type="button"
           className="flex-1 min-w-0 text-left"
-          onClick={() => (hasDetails || editMode ? setExpanded((e) => !e) : undefined)}
+          onClick={() => {
+            if (!(hasDetails || editMode)) return;
+            if (expanded) finishEditing();
+            else setExpanded(true);
+          }}
         >
           {editMode ? (
             <div className="flex flex-wrap items-center gap-2">
               <input
-                value={item.emoji}
-                onChange={(e) => updateItemMeta(categoryId, item.id, { emoji: e.target.value })}
+                value={activeDraft.values.emoji}
+                onChange={(e) => setField('emoji', e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 className="w-11 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-lg"
               />
               <input
-                value={item.title}
-                onChange={(e) => updateItemMeta(categoryId, item.id, { title: e.target.value })}
+                value={activeDraft.values.title}
+                onChange={(e) => setField('title', e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 className="min-w-[8rem] flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-semibold"
                 placeholder="Item title"
               />
               <input
-                value={item.time}
-                onChange={(e) => updateItemMeta(categoryId, item.id, { time: e.target.value })}
+                value={activeDraft.values.time}
+                onChange={(e) => setField('time', e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 className="w-24 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
                 placeholder="Time"
               />
-              {isOneTime ? (
+              {draftIsOneTime ? (
                 <span className="text-xs text-black/40 dark:text-white/40">
-                  one-time · {formatDateShort(item.date)}
+                  one-time · {formatDateShort(activeDraft.values.date)}
                 </span>
               ) : (
-                !everyDay && <span className="text-xs text-black/40 dark:text-white/40">not every day</span>
+                !draftEveryDay && <span className="text-xs text-black/40 dark:text-white/40">not every day</span>
               )}
             </div>
           ) : (
@@ -128,7 +212,7 @@ export function ItemCard({
           <button
             type="button"
             aria-label={expanded ? 'Collapse details' : 'Expand details'}
-            onClick={() => setExpanded((e) => !e)}
+            onClick={() => (expanded ? finishEditing() : setExpanded(true))}
             className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full text-black/40 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/10"
           >
             <span className={`inline-block transition-transform ${expanded ? 'rotate-180' : ''}`}>⌄</span>
@@ -143,36 +227,34 @@ export function ItemCard({
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => updateItemMeta(categoryId, item.id, { date: '' })}
+                  onClick={() => setField('date', '')}
                   className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    !isOneTime ? `${color.chip} text-white` : 'bg-black/5 text-black/50 dark:bg-white/10 dark:text-white/50'
+                    !draftIsOneTime ? `${color.chip} text-white` : 'bg-black/5 text-black/50 dark:bg-white/10 dark:text-white/50'
                   }`}
                 >
                   Repeats weekly
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
-                    updateItemMeta(categoryId, item.id, { date: item.date || todayKey() })
-                  }
+                  onClick={() => setField('date', activeDraft.values.date || todayKey())}
                   className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                    isOneTime ? `${color.chip} text-white` : 'bg-black/5 text-black/50 dark:bg-white/10 dark:text-white/50'
+                    draftIsOneTime ? `${color.chip} text-white` : 'bg-black/5 text-black/50 dark:bg-white/10 dark:text-white/50'
                   }`}
                 >
                   One-time
                 </button>
               </div>
-              {isOneTime ? (
+              {draftIsOneTime ? (
                 <input
                   type="date"
-                  value={item.date}
-                  onChange={(e) => updateItemMeta(categoryId, item.id, { date: e.target.value })}
+                  value={activeDraft.values.date}
+                  onChange={(e) => setField('date', e.target.value)}
                   className="rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
                 />
               ) : (
                 <DayPicker
-                  days={item.days}
-                  onChange={(days) => updateItemMeta(categoryId, item.id, { days })}
+                  days={activeDraft.values.days}
+                  onChange={(days) => setField('days', days)}
                   chipClass={color.chip}
                 />
               )}
@@ -180,8 +262,8 @@ export function ItemCard({
           )}
           {editMode ? (
             <textarea
-              value={item.notes}
-              onChange={(e) => updateItemMeta(categoryId, item.id, { notes: e.target.value })}
+              value={activeDraft.values.notes}
+              onChange={(e) => setField('notes', e.target.value)}
               placeholder="Tip or instructions to help him get it right..."
               className="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1.5 text-sm"
               rows={2}
@@ -208,8 +290,8 @@ export function ItemCard({
                 {editMode ? (
                   <>
                     <input
-                      value={s.text}
-                      onChange={(e) => updateSubStepText(categoryId, item.id, s.id, e.target.value)}
+                      value={activeDraft.subStepTexts[s.id] ?? s.text}
+                      onChange={(e) => setSubStepDraftText(s.id, e.target.value)}
                       className="flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
                     />
                     <button
@@ -250,13 +332,22 @@ export function ItemCard({
           )}
 
           {editMode && (
-            <button
-              type="button"
-              onClick={() => deleteItem(categoryId, item.id)}
-              className="text-sm text-red-500 hover:text-red-600"
-            >
-              Delete this item
-            </button>
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => deleteItem(categoryId, item.id)}
+                className="text-sm text-red-500 hover:text-red-600"
+              >
+                Delete this item
+              </button>
+              <button
+                type="button"
+                onClick={finishEditing}
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold text-white ${color.chip}`}
+              >
+                Done
+              </button>
+            </div>
           )}
         </div>
       )}
