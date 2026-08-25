@@ -1,18 +1,18 @@
 # Focus Plan — Roadmap
 
-_Last updated: 2026-08-24_
+_Last updated: 2026-08-25_
 
 A living list of what's next and open for Focus Plan, the daily checklist app for keeping him on track with mornings, chores, and soccer prep. Shipped work isn't tracked here in detail — the [PR history](https://github.com/srgarner17/focus-scheduler/pulls?q=is%3Apr+is%3Amerged) and commit log are the source of truth for what's already done; this doc stays focused on what's pending.
 
-## Restart point (2026-08-24)
+## Restart point (2026-08-25)
 
 If this session drops, here's exactly where things stand and how to pick back up.
 
 - **Working tree:** clean, nothing uncommitted anywhere.
-- **`master`** has everything merged through PR #13 (transaction-based writes, fixing the data-loss bug where a stale device could overwrite concurrent edits from other devices). Nothing outstanding.
+- **`master`** has everything merged through PR #16 (fixed the per-item Done button reverting edits after committing them — a display bug, not real data loss, caused by resetting the local draft from a stale `item` snapshot right after a successful write). Nothing outstanding.
 - **Canonical URL:** https://srgarner17.github.io/focus-scheduler/ (GitHub Pages). Vercel (https://focus-scheduler-sand.vercel.app/) is a working backup, not primary.
 - **Data is shared and synced** — both parents' devices and the iPad read/write the same Firebase Firestore document in real time. There is no separate "test" environment; every deployment (prod or PR preview) hits the same real household data.
-- **Immediate next action:** none blocking — natural pause point. Next up whenever ready: reordering, or the new "links in item descriptions" idea below (see [Next steps](#next-steps)).
+- **Immediate next action:** none blocking — natural pause point. The current draft/Done-button editing mechanism (PRs #15–16) is fixed and working, but a full **editing UX redesign** is now scoped below to replace it with something structurally simpler — see [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later). Worth doing before building more on top of the current mechanism (e.g. reordering, links) if there's appetite for it now rather than patching further.
 - **Repo state:** public, branch protection on `master` (PR required, admin bypass allowed), feature-branch workflow is the standing default. A new Claude Code session in this repo already has this saved in memory and shouldn't need re-explaining.
 - **Working style note:** build one item at a time, verify it, open its PR, then stop and wait rather than chaining multiple features together unprompted. Update this roadmap proactively after merges, not just when asked.
 
@@ -46,17 +46,31 @@ Scoped 2026-08-24, not yet started. Full plan so a future session can start stra
 
 **CI:** once tests exist, add a `test.yml` GitHub Actions workflow that runs on every pull request (not just push to `master`), so a broken test blocks a bad PR before merge — pairs naturally with the branch protection already in place.
 
+## Editing UX redesign (ready to pick up later)
+
+Scoped 2026-08-25, not yet started. The current draft/Done-button mechanism (PRs #15–16) works and is fixed, but its layered state (global Edit mode → per-item expand → per-item local draft → explicit commit) is what caused essentially every editing bug this session: the cursor-jump race, the overnight-reset data-loss bug's cousin, the unmount-during-commit bug, and the flash-revert bug. Rather than keep hardening that design, replace it with a structurally simpler one before building more on top of it.
+
+**Core idea:** autosave with a debounce, plus a visible sync-status indicator, instead of buffering a whole item's edits until an explicit "Done" commit. This is the same pattern Notion, Linear, and Google Docs use — edit, pause, it saves, no separate mode to remember to exit.
+
+**What changes:**
+- **Remove the `ItemCard`-level draft entirely** (`Draft`/`dirty`/`commitDraft`/`finishEditing`/`draftRef`, and the per-item "Done" button). Text fields (title, notes, sub-step text, child's name) go back to calling `updateItemMeta` / `updateSubStepText` / `setChildName` directly on every `onChange`, same shape as before PR #13's per-keystroke-write days.
+- **Move debouncing into the data layer, not the component.** In `useSchedule.ts`, wrap the text-field mutation path so the *local* optimistic state still updates synchronously on every keystroke (this is what the cursor-jump fix in PR #5 depends on — must not regress it), but the actual Firestore transaction for that field is delayed ~500–600ms after the last keystroke, resetting the timer on each new one. Non-text actions (toggling done, adding/deleting an item or category, the day picker, the one-time/recurring switch) stay immediate — they're already discrete, cheap, one-shot writes with no typing race to debounce.
+- **Add a `saveStatus` value exposed from the hook** (`idle` / `saving` / `saved` / `error`), derived from whether any debounce timer or in-flight transaction is currently pending, plus whether the most recent write settled or rejected.
+- **Add a small status indicator in the header** (near the Edit button or progress card): a subtle "Saving…" while pending, "Saved" that fades after a couple seconds once settled, "Couldn't save — tap to retry" if a write's promise rejects. This is the actual trust-builder — a parent should never have to wonder whether an edit stuck.
+- **Undo for destructive actions, not every edit.** Add a brief "Category deleted — Undo" / "Item deleted — Undo" toast for delete actions specifically (the one place an accidental tap is genuinely hard to recover from); routine text edits don't need it since nothing is hidden or buffered anymore — what's on screen is what's saved (or about to be), so fixing a typo is just retyping it.
+- **Keep as-is:** the Firestore transaction mechanism itself (correct, not the source of these bugs), real-time sync, the PIN-gated parental lock concept (still needed — reframe as "unlocked for editing" rather than a heavyweight "mode" if it helps, but the underlying gate stays), expand/collapse for progressive disclosure (notes/day-picker/sub-steps), and everything unrelated to saving (scheduling logic, auto-collapse, layout).
+
+**Explicitly out of scope:** redesigning the visual layout or information architecture of the checklist itself — this is scoped purely to the save mechanism and edit affordances.
+
+**Sequencing note:** do this before the automated test suite's Tier 2/3 (the `useSchedule` hook and `ItemCard` component tests) — those would otherwise be written against code this redesign removes.
+
 ## Next steps
 
-1. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
-2. **Eliminate potential lost work when editing** — scoped 2026-08-24, not started, discussed after fixing the data-loss bug in PR #13. Right now every field change while editing an item (each keystroke, each toggle) writes to Firestore immediately, which is chatty and means other devices see a title flicker letter-by-letter while someone's mid-edit. Proposed design:
-   - Expanding an item for editing (new or existing) starts a local draft — title, emoji, time, notes, days/date, sub-steps all live in local component state only while it's being worked on. No writes fire as fields change within that panel.
-   - A **Done** button commits the whole draft as a single write when finished with that item.
-   - Collapsing the panel any other way (the chevron, exiting Edit mode entirely) also auto-saves whatever's there, so "Done" is the expected path but not the *only* safe one — nothing is silently lost by navigating away without remembering to tap it.
-   - Known tradeoff: if two parents happened to edit the exact same item within the same few seconds, whoever commits last wins for that item — same last-write-wins semantics as any other editor, not expected to need special handling given how unlikely that overlap is.
+1. **Editing UX redesign** — see [full scope](#editing-ux-redesign-ready-to-pick-up-later) below. Replaces the draft/Done-button mechanism (shipped and working, PRs #15–16) with autosave + a sync-status indicator, removing the state layer that's caused most of the recent bugs rather than continuing to patch it.
+2. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
 3. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
 4. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.
-5. **Automated test suite** — see [Automated testing scope](#automated-testing-scope-ready-to-pick-up-later) above; fully scoped and ready to start.
+5. **Automated test suite** — see [Automated testing scope](#automated-testing-scope-ready-to-pick-up-later) above; fully scoped and ready to start. Worth sequencing *after* the editing UX redesign, since Tier 2/3 tests would otherwise target code this redesign removes.
 6. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
 
 ## Quick reference
