@@ -9,21 +9,21 @@ A living list of what's next and open for Focus Plan, the daily checklist app fo
 If this session drops, here's exactly where things stand and how to pick back up.
 
 - **Working tree:** clean, nothing uncommitted anywhere.
-- **`master`** has everything merged through PR #18 (resequenced tests before the editing UX redesign). Nothing else outstanding on master.
+- **`master`** has everything merged through PR #20 (Tier 2 automated tests for the `useSchedule` hook). Nothing else outstanding on master.
 - **Canonical URL:** https://srgarner17.github.io/focus-scheduler/ (GitHub Pages). Vercel (https://focus-scheduler-sand.vercel.app/) is a working backup, not primary.
 - **Data is shared and synced** — both parents' devices and the iPad read/write the same Firebase Firestore document in real time. There is no separate "test" environment; every deployment (prod or PR preview) hits the same real household data.
-- **Immediate next action:** Tier 1 ([PR #19](https://github.com/srgarner17/focus-scheduler/pull/19), merged) and Tier 2 of the automated test suite (`useSchedule` hook, PR open — see below) are done. Tier 3 (`CategorySection`/`ItemCard` component behavior) is the natural next pickup — see [Automated testing scope](#automated-testing-scope). The **editing UX redesign** is fully scoped and queued up after the test suite — see [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later).
+- **Immediate next action:** the automated test suite is fully built — Tiers 1-3 all done, PR open for Tier 3 (`CategorySection`/`ItemCard` component behavior) — see [Automated testing scope](#automated-testing-scope). The **editing UX redesign** is fully scoped and is the next pickup once that PR merges — see [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later).
 - **Repo state:** public, branch protection on `master` (PR required, admin bypass allowed), feature-branch workflow is the standing default. A new Claude Code session in this repo already has this saved in memory and shouldn't need re-explaining.
 - **Working style note:** build one item at a time, verify it, open its PR, then stop and wait rather than chaining multiple features together unprompted. Update this roadmap proactively after merges, not just when asked.
 
 ## Open decisions
 
-- **Automated tests.** Tier 1 (pure functions) and Tier 2 (the `useSchedule` hook) are done and running in CI on every PR — see below. Tier 3 (component behavior) is scoped but not started yet.
+- **Automated tests.** All three tiers (pure functions, the `useSchedule` hook, component behavior) are done and running in CI on every PR — see below.
 - **Notifications (two-way).** Parents want to know when something is/isn't done by a certain time. Deferred — needs real design thinking (what counts as "on time," how a parent gets notified when the app isn't open) before it's even scoped, and technically needs Firebase Cloud Functions, which requires the paid Blaze tier rather than the free Spark plan currently in use.
 
 ## Automated testing scope
 
-Scoped 2026-08-24. Tiers 1-2 done 2026-08-25; Tier 3 still ready to pick up.
+Scoped 2026-08-24. All three tiers done 2026-08-25.
 
 **Tooling:** Vitest (Vite-native, shares existing config, fast) + React Testing Library + jsdom for anything that renders. For Firestore-dependent code, **mock the SDK** (`onSnapshot`, `setDoc`) rather than run the Firebase Local Emulator Suite — the emulator is more realistic but needs a Java runtime and real setup overhead; mocking is enough to test our own logic.
 
@@ -39,10 +39,11 @@ Scoped 2026-08-24. Tiers 1-2 done 2026-08-25; Tier 3 still ready to pick up.
 - Sanity coverage for `toggleItem` (including the all-sub-steps-together case), `addItem`/`deleteItem`, and same-device write ordering.
 - `firebase/firestore`'s `onSnapshot`/`runTransaction`/`doc` are mocked with a small in-memory "server document," rather than the Firebase Local Emulator Suite.
 
-**Tier 3 — component behavior (capped scope, don't chase full coverage):**
-- `CategorySection` — auto-collapse fires when complete, resets when not.
-- `ItemCard` — recurring/one-time toggle switches correctly.
-- Deliberately skip presentational-only components (`ProgressBar`, `DayPicker` rendering).
+**Tier 3 — component behavior (done 2026-08-25, 7 tests):**
+- `CategorySection` — auto-collapses once every item is done, stays open while work remains, lets the user manually reopen a collapsed section, and resets that override (re-collapsing fresh) the next time new work is completed. Never auto-collapses in edit mode.
+- `ItemCard` — the recurring/one-time toggle switches the active button and date-vs-day-picker UI correctly, and commits only the changed `date` field (not the whole draft) when Done is tapped, in both directions.
+- Presentational-only components (`ProgressBar`, `DayPicker` rendering) skipped as planned.
+- RTL doesn't auto-cleanup between tests without `test.globals: true`; `src/test/setup.ts` registers `afterEach(cleanup)` explicitly so component tests don't leak DOM nodes across cases in the same file.
 
 **Explicitly out of scope for now:** Firestore emulator / security-rule testing (rules are trivial today), end-to-end browser tests via Playwright (defer unless a class of bug keeps slipping past unit tests), visual regression testing (overkill at this scale).
 
@@ -64,16 +65,15 @@ Scoped 2026-08-25, not yet started. The current draft/Done-button mechanism (PRs
 
 **Explicitly out of scope:** redesigning the visual layout or information architecture of the checklist itself — this is scoped purely to the save mechanism and edit affordances.
 
-**Sequencing note (revised 2026-08-25):** automated tests now come *first* — see [Next steps](#next-steps). Tier 1 (pure functions, done) and Tier 2 (the `useSchedule` hook's public methods — `toggleItem`, `updateItemMeta`, etc.) are unaffected by this redesign, since the hook's public API doesn't change shape, only its internal debounce timing for text fields. Tier 3 component tests will be written against observable behavior (type a value, it eventually persists; toggle recurring/one-time, the flag flips) rather than today's specific "click Done" interaction, so they hold up through the redesign instead of needing a rewrite.
+**Sequencing note (revised 2026-08-25):** the automated test suite (all 3 tiers) is done, ahead of this redesign as planned — see [Automated testing scope](#automated-testing-scope). Tier 1 (pure functions) and Tier 2 (the `useSchedule` hook's public methods) are fully unaffected by this redesign, since the hook's public API doesn't change shape, only its internal debounce timing for text fields — real regression coverage for the redesign. Tier 3's `CategorySection` tests are similarly unaffected. Tier 3's `ItemCard` tests, however, do drive the current "click Done to commit" interaction directly (there's no other way to trigger a commit in today's UI) — those will need their trigger step updated once the per-item Done button is removed, though what they assert (the toggle switches correctly, only the changed field is patched) stays conceptually valid.
 
 ## Next steps
 
-1. **Automated test suite, Tier 3** — see [Automated testing scope](#automated-testing-scope) above; Tiers 1-2 are done (2026-08-25). Written against public/observable behavior rather than internal implementation details, so these survive the editing UX redesign below and double as a regression safety net for it.
-2. **Editing UX redesign** — see [full scope](#editing-ux-redesign-ready-to-pick-up-later) below. Replaces the draft/Done-button mechanism (shipped and working, PRs #15–16) with autosave + a sync-status indicator, removing the state layer that's caused most of the recent bugs rather than continuing to patch it. Picked up after the test suite lands.
-3. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
-4. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
-5. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.
-6. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
+1. **Editing UX redesign** — see [full scope](#editing-ux-redesign-ready-to-pick-up-later) below. Replaces the draft/Done-button mechanism (shipped and working, PRs #15–16) with autosave + a sync-status indicator, removing the state layer that's caused most of the recent bugs rather than continuing to patch it. The automated test suite (see [Automated testing scope](#automated-testing-scope)) is done, so this is next up.
+2. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
+3. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
+4. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.
+5. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
 
 ## Quick reference
 
