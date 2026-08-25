@@ -119,7 +119,18 @@ export function ItemCard({
   function finishEditing() {
     if (draft) {
       commitDraft(draft);
-      setDraft(makeDraft(item));
+      // Clear the dirty flags (so an unrelated future commit doesn't resend
+      // fields nobody touched this round) but keep `values` as they are.
+      // Resetting to makeDraft(item) here used `item` from this render's
+      // closure, which is still the pre-commit prop — the parent's state
+      // update from commitDraft() hasn't flowed back down yet by this point
+      // in the same synchronous call. Since editMode stays true and nothing
+      // else re-seeds the draft from `item` while it's non-null, that stale
+      // snapshot became the permanent displayed value: the title/emoji/time
+      // fields (visible even while collapsed) would revert to their
+      // pre-edit text and stay that way, looking exactly like the edit had
+      // been silently discarded even though the write itself succeeded.
+      setDraft((d) => (d ? { ...d, dirty: {}, subStepTexts: {} } : d));
     }
     setExpanded(false);
   }
