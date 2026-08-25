@@ -12,4 +12,8 @@ export default defineConfig(() => ({
   server: {
     host: true, // expose on the LAN so other devices (like an iPad) can reach it
   },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
 }))
