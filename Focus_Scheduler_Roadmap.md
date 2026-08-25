@@ -65,6 +65,8 @@ Scoped 2026-08-25, not yet started. The current draft/Done-button mechanism (PRs
 
 **Explicitly out of scope:** redesigning the visual layout or information architecture of the checklist itself — this is scoped purely to the save mechanism and edit affordances.
 
+**User feedback (2026-08-25):** the per-item "Done" button currently shows unconditionally whenever an item is expanded in edit mode, even if nothing was actually changed — maybe it shouldn't show for items that weren't edited. This redesign already resolves it by removing the Done button entirely (autosave has nothing to explicitly "finish"). If this redesign gets deprioritized, the smaller fix is to only show/enable Done when the draft is dirty (`Object.keys(draft.dirty).length > 0 || Object.keys(draft.subStepTexts).length > 0`).
+
 **Sequencing note (revised 2026-08-25):** the automated test suite (all 3 tiers) is done, ahead of this redesign as planned — see [Automated testing scope](#automated-testing-scope). Tier 1 (pure functions) and Tier 2 (the `useSchedule` hook's public methods) are fully unaffected by this redesign, since the hook's public API doesn't change shape, only its internal debounce timing for text fields — real regression coverage for the redesign. Tier 3's `CategorySection` tests are similarly unaffected. Tier 3's `ItemCard` tests, however, do drive the current "click Done to commit" interaction directly (there's no other way to trigger a commit in today's UI) — those will need their trigger step updated once the per-item Done button is removed, though what they assert (the toggle switches correctly, only the changed field is patched) stays conceptually valid.
 
 ## Next steps
