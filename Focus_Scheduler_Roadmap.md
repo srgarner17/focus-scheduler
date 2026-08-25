@@ -73,7 +73,8 @@ Scoped 2026-08-25, not yet started. The current draft/Done-button mechanism (PRs
 2. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
 3. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
 4. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.
-5. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
+5. **Calendar integration** — just captured 2026-08-25, not yet scoped. Direction still open: export the schedule (or just one-time items) into a calendar app a parent already uses, pull an external calendar (e.g. the soccer team's practice/game schedule) into the app instead, or both; one-way vs. two-way sync. Needs a proper scoping pass before it's built.
+6. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
 
 ## Quick reference
 
