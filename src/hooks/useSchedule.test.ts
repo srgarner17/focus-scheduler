@@ -91,7 +91,7 @@ describe('useSchedule', () => {
     const itemId = category.items[0].id;
 
     act(() => {
-      result.current.updateItemMeta(category.id, itemId, { title: 'Typed mid-keystroke' });
+      result.current.updateItemTitle(category.id, itemId, 'Typed mid-keystroke');
     });
 
     // Assert in the same tick as the call above, before awaiting anything —
@@ -167,19 +167,21 @@ describe('useSchedule', () => {
     await waitFor(() => expect(getServerDoc()?.categories[0].items).toHaveLength(startCount));
   });
 
-  it('queues rapid same-device writes in order rather than racing them', async () => {
+  it('queues rapid same-device immediate writes in order rather than racing them', async () => {
     const { result } = await mountSchedule();
     const categoryId = result.current.data!.categories[0].id;
     const itemId = result.current.data!.categories[0].items[0].id;
 
+    // emoji is one of the fields that stays immediate (not debounced) — a
+    // quick tap/paste, not sustained typing.
     act(() => {
-      result.current.updateItemMeta(categoryId, itemId, { title: 'a' });
-      result.current.updateItemMeta(categoryId, itemId, { title: 'ab' });
-      result.current.updateItemMeta(categoryId, itemId, { title: 'abc' });
+      result.current.updateItemMeta(categoryId, itemId, { emoji: 'a' });
+      result.current.updateItemMeta(categoryId, itemId, { emoji: 'ab' });
+      result.current.updateItemMeta(categoryId, itemId, { emoji: 'abc' });
     });
 
-    expect(result.current.data!.categories[0].items[0].title).toBe('abc');
-    await waitFor(() => expect(getServerDoc()?.categories[0].items[0].title).toBe('abc'));
+    expect(result.current.data!.categories[0].items[0].emoji).toBe('abc');
+    await waitFor(() => expect(getServerDoc()?.categories[0].items[0].emoji).toBe('abc'));
   });
 
   it('reports saving immediately, then saved once the write settles, fading back to idle after a delay', async () => {
@@ -402,6 +404,97 @@ describe('useSchedule', () => {
 
       // One transaction per category, not one shared/merged write.
       expect(runTransactionMock.mock.calls.length).toBe(callsBeforeTyping + 2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('debounces updateItemTitle the same way as setChildName, sending only the final value', async () => {
+    const { result } = await mountSchedule();
+    const categoryId = result.current.data!.categories[0].id;
+    const itemId = result.current.data!.categories[0].items[0].id;
+    const callsBeforeTyping = runTransactionMock.mock.calls.length;
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.updateItemTitle(categoryId, itemId, 'M'));
+      act(() => vi.advanceTimersByTime(300));
+      act(() => result.current.updateItemTitle(categoryId, itemId, 'Make'));
+      act(() => vi.advanceTimersByTime(300));
+      act(() => result.current.updateItemTitle(categoryId, itemId, 'Make the Bed!'));
+      expect(result.current.data!.categories[0].items[0].title).toBe('Make the Bed!');
+
+      expect(runTransactionMock.mock.calls.length).toBe(callsBeforeTyping);
+
+      act(() => vi.advanceTimersByTime(650));
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+
+      expect(runTransactionMock.mock.calls.length).toBe(callsBeforeTyping + 1);
+      expect(getServerDoc()?.categories[0].items[0].title).toBe('Make the Bed!');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('debounces different fields on the same item independently (title vs. notes)', async () => {
+    const { result } = await mountSchedule();
+    const categoryId = result.current.data!.categories[0].id;
+    const itemId = result.current.data!.categories[0].items[0].id;
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.updateItemTitle(categoryId, itemId, 'New Title'));
+      act(() => vi.advanceTimersByTime(300));
+      // Editing notes shouldn't reset or cancel the still-pending title edit.
+      act(() => result.current.updateItemNotes(categoryId, itemId, 'New Notes'));
+
+      act(() => vi.advanceTimersByTime(350)); // title's own 600ms window elapses
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(getServerDoc()?.categories[0].items[0].title).toBe('New Title');
+      expect(getServerDoc()?.categories[0].items[0].notes).not.toBe('New Notes');
+
+      act(() => vi.advanceTimersByTime(350)); // notes' own 600ms window elapses
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(getServerDoc()?.categories[0].items[0].notes).toBe('New Notes');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('debounces two different sub-steps on the same item independently', async () => {
+    const { result } = await mountSchedule();
+    const categoryId = result.current.data!.categories[0].id;
+    const item = result.current.data!.categories[0].items[0];
+    const [subStepA, subStepB] = item.subSteps;
+    expect(subStepA).toBeDefined();
+    expect(subStepB).toBeDefined();
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.updateSubStepText(categoryId, item.id, subStepA.id, 'Step A edited'));
+      act(() => vi.advanceTimersByTime(300));
+      act(() => result.current.updateSubStepText(categoryId, item.id, subStepB.id, 'Step B edited'));
+
+      act(() => vi.advanceTimersByTime(350));
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      const stepsAfterA = getServerDoc()?.categories[0].items[0].subSteps;
+      expect(stepsAfterA?.find((s) => s.id === subStepA.id)?.text).toBe('Step A edited');
+      expect(stepsAfterA?.find((s) => s.id === subStepB.id)?.text).not.toBe('Step B edited');
+
+      act(() => vi.advanceTimersByTime(350));
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      const stepsAfterB = getServerDoc()?.categories[0].items[0].subSteps;
+      expect(stepsAfterB?.find((s) => s.id === subStepB.id)?.text).toBe('Step B edited');
     } finally {
       vi.useRealTimers();
     }
