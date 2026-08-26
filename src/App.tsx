@@ -71,7 +71,7 @@ function App() {
       <div className="mx-auto max-w-xl px-4 pb-24 pt-6 sm:pt-10 lg:max-w-5xl xl:max-w-6xl">
         <header className="mb-6 space-y-4 lg:mx-auto lg:max-w-xl">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-sm text-black/50 dark:text-white/50">{friendlyDate()}</p>
               {editMode ? (
                 <input
@@ -79,7 +79,7 @@ function App() {
                   onChange={(e) => setNameDraft(e.target.value)}
                   onBlur={() => s.setChildName(nameDraft)}
                   placeholder="His name"
-                  className="mt-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-2xl font-bold"
+                  className="mt-1 w-full min-w-0 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-2xl font-bold"
                 />
               ) : (
                 <h1 className="text-2xl font-bold">
