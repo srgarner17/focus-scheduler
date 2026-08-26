@@ -36,6 +36,7 @@ const baseProps = {
   toggleItem: noop,
   toggleSubStep: noop,
   updateCategoryMeta: noop,
+  updateCategoryName: noop,
   deleteCategory: noop,
   addItem: noop,
   updateItemMeta: noop,

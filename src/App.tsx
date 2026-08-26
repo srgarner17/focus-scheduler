@@ -147,6 +147,7 @@ function App() {
                   toggleItem={s.toggleItem}
                   toggleSubStep={s.toggleSubStep}
                   updateCategoryMeta={s.updateCategoryMeta}
+                  updateCategoryName={s.updateCategoryName}
                   deleteCategory={s.deleteCategory}
                   addItem={s.addItem}
                   updateItemMeta={s.updateItemMeta}

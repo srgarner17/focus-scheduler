@@ -343,4 +343,67 @@ describe('useSchedule', () => {
       vi.useRealTimers();
     }
   });
+
+  it('debounces updateCategoryName the same way as setChildName, sending only the final value', async () => {
+    const { result } = await mountSchedule();
+    const categoryId = result.current.data!.categories[0].id;
+    const callsBeforeTyping = runTransactionMock.mock.calls.length;
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.updateCategoryName(categoryId, 'C'));
+      act(() => vi.advanceTimersByTime(300));
+      act(() => result.current.updateCategoryName(categoryId, 'Ch'));
+      act(() => vi.advanceTimersByTime(300));
+      act(() => result.current.updateCategoryName(categoryId, 'Chores!'));
+      expect(result.current.data!.categories[0].name).toBe('Chores!');
+
+      expect(runTransactionMock.mock.calls.length).toBe(callsBeforeTyping);
+
+      act(() => vi.advanceTimersByTime(650));
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+
+      expect(runTransactionMock.mock.calls.length).toBe(callsBeforeTyping + 1);
+      expect(getServerDoc()?.categories[0].name).toBe('Chores!');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('debounces two different categories\' name edits independently, without one canceling the other', async () => {
+    const { result } = await mountSchedule();
+    const categoryAId = result.current.data!.categories[0].id;
+    const categoryBId = result.current.data!.categories[1].id;
+    const callsBeforeTyping = runTransactionMock.mock.calls.length;
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.updateCategoryName(categoryAId, 'Morning Stuff'));
+      act(() => vi.advanceTimersByTime(300));
+      // Editing a DIFFERENT category's name shouldn't reset or cancel
+      // category A's still-pending debounce.
+      act(() => result.current.updateCategoryName(categoryBId, 'House Jobs'));
+
+      act(() => vi.advanceTimersByTime(350)); // A's window (600ms from its own keystroke) elapses
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(getServerDoc()?.categories[0].name).toBe('Morning Stuff');
+      // B was only set 300ms ago at this point — not sent yet.
+      expect(getServerDoc()?.categories[1].name).not.toBe('House Jobs');
+
+      act(() => vi.advanceTimersByTime(350)); // B's own 600ms window elapses
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(getServerDoc()?.categories[1].name).toBe('House Jobs');
+
+      // One transaction per category, not one shared/merged write.
+      expect(runTransactionMock.mock.calls.length).toBe(callsBeforeTyping + 2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
