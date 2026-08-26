@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isItemDone, isItemScheduledOn, type ScheduleItem } from './types';
+import { isItemDone, isItemScheduledOn, isOneTimeInPast, type ScheduleItem } from './types';
 
 function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {
@@ -65,5 +65,27 @@ describe('isItemScheduledOn', () => {
   it('an item scheduled on no days ever matches', () => {
     const item = makeItem({ days: [], date: '' });
     expect(isItemScheduledOn(item, '2026-08-25', 2)).toBe(false);
+  });
+});
+
+describe('isOneTimeInPast', () => {
+  it('is true for a one-time item dated before today', () => {
+    const item = makeItem({ date: '2026-08-25' });
+    expect(isOneTimeInPast(item, '2026-08-26')).toBe(true);
+  });
+
+  it('is false for a one-time item dated today', () => {
+    const item = makeItem({ date: '2026-08-26' });
+    expect(isOneTimeInPast(item, '2026-08-26')).toBe(false);
+  });
+
+  it('is false for a one-time item dated in the future', () => {
+    const item = makeItem({ date: '2026-08-27' });
+    expect(isOneTimeInPast(item, '2026-08-26')).toBe(false);
+  });
+
+  it('is false for a recurring item (no date), regardless of days', () => {
+    const item = makeItem({ date: '', days: [] });
+    expect(isOneTimeInPast(item, '2026-08-26')).toBe(false);
   });
 });

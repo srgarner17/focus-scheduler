@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Category, ScheduleItem } from '../types';
-import { isItemDone, isItemScheduledOn } from '../types';
+import { isItemDone, isItemScheduledOn, isOneTimeInPast } from '../types';
 import { colorStyles } from '../lib/colors';
 import { todayDayIndex, todayKey } from '../lib/date';
 import { ProgressBar } from './ProgressBar';
@@ -51,7 +51,13 @@ export function CategorySection({
   const today = todayDayIndex();
   const todayDateKey = todayKey();
   const activeItems = category.items.filter((it) => isItemScheduledOn(it, todayDateKey, today));
-  const displayedItems = editMode ? category.items : activeItems;
+  // Edit mode otherwise shows every item regardless of today's schedule, so a
+  // parent can get to items on other days — but a one-time item whose date
+  // has already passed has nothing left to edit and would just clutter the
+  // list forever, so it's excluded even in edit mode.
+  const displayedItems = editMode
+    ? category.items.filter((it) => !isOneTimeInPast(it, todayDateKey))
+    : activeItems;
   const total = activeItems.length;
   const doneCount = activeItems.filter(isItemDone).length;
   const percent = total === 0 ? 0 : (doneCount / total) * 100;
