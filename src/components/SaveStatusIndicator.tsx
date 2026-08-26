@@ -6,23 +6,26 @@ interface Props {
 }
 
 export function SaveStatusIndicator({ status, onRetry }: Props) {
-  if (status === 'idle') return null;
-
-  if (status === 'error') {
-    return (
-      <button
-        type="button"
-        onClick={onRetry}
-        className="shrink-0 text-xs font-medium text-red-500 underline decoration-dotted underline-offset-2 hover:text-red-600"
-      >
-        Couldn't save — tap to retry
-      </button>
-    );
-  }
-
   return (
-    <span className="shrink-0 text-xs font-medium text-black/40 dark:text-white/40">
-      {status === 'saving' ? 'Saving…' : 'Saved'}
-    </span>
+    // Fixed height, always rendered (even when idle) so the normal
+    // saving/saved cycle never shifts the Edit button — or anything below it
+    // on the page — up and down. The rare error message is allowed to wrap
+    // onto a second line rather than stretching the header wider, which on
+    // a narrow screen pushed the Edit button partly off-screen.
+    <div className="flex min-h-4 shrink-0 items-center justify-end">
+      {status === 'error' ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="max-w-[9rem] text-right text-xs font-medium leading-tight text-red-500 underline decoration-dotted underline-offset-2 hover:text-red-600"
+        >
+          Couldn't save — tap to retry
+        </button>
+      ) : (
+        <span className="text-xs font-medium text-black/40 dark:text-white/40">
+          {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : ''}
+        </span>
+      )}
+    </div>
   );
 }
