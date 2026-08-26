@@ -18,8 +18,11 @@ interface Props {
   updateItemMeta: (
     categoryId: string,
     itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days' | 'date'>>,
+    patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>,
   ) => void;
+  updateItemTitle: (categoryId: string, itemId: string, title: string) => void;
+  updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
+  updateItemTime: (categoryId: string, itemId: string, time: string) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
   updateSubStepText: (categoryId: string, itemId: string, subStepId: string, text: string) => void;
@@ -36,6 +39,9 @@ export function CategorySection({
   deleteCategory,
   addItem,
   updateItemMeta,
+  updateItemTitle,
+  updateItemNotes,
+  updateItemTime,
   deleteItem,
   addSubStep,
   updateSubStepText,
@@ -119,6 +125,9 @@ export function CategorySection({
               toggleItem={toggleItem}
               toggleSubStep={toggleSubStep}
               updateItemMeta={updateItemMeta}
+              updateItemTitle={updateItemTitle}
+              updateItemNotes={updateItemNotes}
+              updateItemTime={updateItemTime}
               deleteItem={deleteItem}
               addSubStep={addSubStep}
               updateSubStepText={updateSubStepText}

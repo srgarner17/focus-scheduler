@@ -231,6 +231,23 @@ export function useSchedule() {
     }));
   }
 
+  // Debounced counterpart to updateItem, for text fields — same idea as
+  // updateCategoryName. Keyed per item so, e.g., editing an item's title and
+  // its notes at the same time debounces each independently.
+  function updateItemDebounced(
+    key: string,
+    categoryId: string,
+    itemId: string,
+    fn: (item: ScheduleItem) => ScheduleItem,
+  ) {
+    mutateDebounced(key, (d) => ({
+      ...d,
+      categories: d.categories.map((c) =>
+        c.id === categoryId ? { ...c, items: c.items.map((it) => (it.id === itemId ? fn(it) : it)) } : c,
+      ),
+    }));
+  }
+
   function toggleItem(categoryId: string, itemId: string) {
     updateItem(categoryId, itemId, (it) => {
       if (it.subSteps.length > 0) {
@@ -300,12 +317,23 @@ export function useSchedule() {
     return newItem.id;
   }
 
-  function updateItemMeta(
-    categoryId: string,
-    itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'title' | 'emoji' | 'time' | 'notes' | 'days' | 'date'>>,
-  ) {
+  // Discrete, one-shot fields (emoji tap/paste, the day picker, the
+  // one-time/recurring switch) — immediate, same as before. Title/notes/time
+  // are sustained typing and go through the debounced setters below instead.
+  function updateItemMeta(categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) {
     updateItem(categoryId, itemId, (it) => ({ ...it, ...patch }));
+  }
+
+  function updateItemTitle(categoryId: string, itemId: string, title: string) {
+    updateItemDebounced(`item:${itemId}:title`, categoryId, itemId, (it) => ({ ...it, title }));
+  }
+
+  function updateItemNotes(categoryId: string, itemId: string, notes: string) {
+    updateItemDebounced(`item:${itemId}:notes`, categoryId, itemId, (it) => ({ ...it, notes }));
+  }
+
+  function updateItemTime(categoryId: string, itemId: string, time: string) {
+    updateItemDebounced(`item:${itemId}:time`, categoryId, itemId, (it) => ({ ...it, time }));
   }
 
   function deleteItem(categoryId: string, itemId: string) {
@@ -319,8 +347,10 @@ export function useSchedule() {
     }));
   }
 
+  // Debounced, keyed per sub-step, so editing two sub-steps on the same item
+  // debounces independently.
   function updateSubStepText(categoryId: string, itemId: string, subStepId: string, text: string) {
-    updateItem(categoryId, itemId, (it) => ({
+    updateItemDebounced(`item:${itemId}:substep:${subStepId}`, categoryId, itemId, (it) => ({
       ...it,
       subSteps: it.subSteps.map((s) => (s.id === subStepId ? { ...s, text } : s)),
     }));
@@ -348,6 +378,9 @@ export function useSchedule() {
     deleteCategory,
     addItem,
     updateItemMeta,
+    updateItemTitle,
+    updateItemNotes,
+    updateItemTime,
     deleteItem,
     addSubStep,
     updateSubStepText,

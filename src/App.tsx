@@ -151,6 +151,9 @@ function App() {
                   deleteCategory={s.deleteCategory}
                   addItem={s.addItem}
                   updateItemMeta={s.updateItemMeta}
+                  updateItemTitle={s.updateItemTitle}
+                  updateItemNotes={s.updateItemNotes}
+                  updateItemTime={s.updateItemTime}
                   deleteItem={s.deleteItem}
                   addSubStep={s.addSubStep}
                   updateSubStepText={s.updateSubStepText}
