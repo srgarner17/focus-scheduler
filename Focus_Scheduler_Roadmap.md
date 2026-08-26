@@ -20,7 +20,7 @@ If this session drops, here's exactly where things stand and how to pick back up
 
 - **Automated tests.** All three tiers (pure functions, the `useSchedule` hook, component behavior) are done and running in CI on every PR — see below.
 - **Notifications (two-way).** Parents want to know when something is/isn't done by a certain time. Deferred — needs real design thinking (what counts as "on time," how a parent gets notified when the app isn't open) before it's even scoped, and technically needs Firebase Cloud Functions, which requires the paid Blaze tier rather than the free Spark plan currently in use.
-- **Offline write feedback.** Found during Step 1 UAT (2026-08-26): a transaction has no offline path (unlike plain writes, which the app's offline cache can queue), so an edit made with no connection just sits pending forever with no error and no confirmation — see the note under [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later) Step 1. Needs a decision on approach (likely a `navigator.onLine`-based state layered on top of `saveStatus`) before it's scoped.
+- **Offline write feedback.** Found during Step 1 UAT (2026-08-26): a transaction has no offline path (unlike plain writes, which the app's offline cache can queue), so an edit made with no connection just sits pending forever with no error and no confirmation — see the note under [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later) Step 1. **Deliberately held, not scoped (2026-08-26):** there's no real scenario today where editing while genuinely offline matters enough to justify the work — revisit only if that changes.
 
 ## Automated testing scope
 
