@@ -49,6 +49,15 @@ export function isItemScheduledOn(item: ScheduleItem, dateKey: string, dayIndex:
   return item.days.includes(dayIndex);
 }
 
+// A one-time item whose date has already passed has nothing left to show or
+// edit — this is used to hide it from the edit-mode item list, which
+// otherwise shows every item regardless of today's schedule. Recurring
+// items (no date set) are never "past" in this sense. YYYY-MM-DD strings
+// compare correctly with plain `<`, so no date parsing is needed.
+export function isOneTimeInPast(item: ScheduleItem, todayDateKey: string): boolean {
+  return Boolean(item.date) && item.date < todayDateKey;
+}
+
 export const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export const DAY_NAMES = [
   'Sunday',

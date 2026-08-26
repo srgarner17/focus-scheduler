@@ -3,6 +3,13 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { CategorySection } from './CategorySection';
 import type { Category, ScheduleItem } from '../types';
 import { ALL_DAYS } from '../types';
+import { dateKeyFor } from '../lib/date';
+
+function daysFromToday(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return dateKeyFor(d);
+}
 
 function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {
@@ -97,5 +104,25 @@ describe('CategorySection auto-collapse', () => {
     expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
     // In edit mode the title renders as an editable input, not plain text.
     expect(screen.getByDisplayValue('Test item')).toBeInTheDocument();
+  });
+});
+
+describe('CategorySection edit-mode item list', () => {
+  it('shows an item scheduled on a different day, but hides a one-time item whose date has passed', () => {
+    const category = makeCategory([
+      makeItem({ id: 'a', title: 'Recurring Item', days: [] }), // scheduled on no weekday
+      makeItem({ id: 'b', title: 'Past One-Time', date: daysFromToday(-1) }),
+      makeItem({ id: 'c', title: 'Future One-Time', date: daysFromToday(1) }),
+      makeItem({ id: 'd', title: 'Today One-Time', date: daysFromToday(0) }),
+    ]);
+    render(<CategorySection category={category} {...baseProps} editMode />);
+
+    // Edit mode normally shows every item regardless of today's schedule...
+    expect(screen.getByDisplayValue('Recurring Item')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Future One-Time')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Today One-Time')).toBeInTheDocument();
+    // ...except a one-time item whose date has already passed, which has
+    // nothing left to edit and would just clutter the list forever.
+    expect(screen.queryByDisplayValue('Past One-Time')).not.toBeInTheDocument();
   });
 });
