@@ -270,6 +270,16 @@ export function useSchedule() {
     updateCategory(categoryId, (c) => ({ ...c, ...patch }));
   }
 
+  // Debounced like setChildName — typing a category name shouldn't queue a
+  // transaction on every keystroke. Keyed per category so editing two
+  // categories' names around the same time debounces each independently.
+  function updateCategoryName(categoryId: string, name: string) {
+    mutateDebounced(`category:${categoryId}:name`, (d) => ({
+      ...d,
+      categories: d.categories.map((c) => (c.id === categoryId ? { ...c, name } : c)),
+    }));
+  }
+
   function deleteCategory(categoryId: string) {
     mutate((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== categoryId) }));
   }
@@ -334,6 +344,7 @@ export function useSchedule() {
     setEditPin,
     addCategory,
     updateCategoryMeta,
+    updateCategoryName,
     deleteCategory,
     addItem,
     updateItemMeta,

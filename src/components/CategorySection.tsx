@@ -12,6 +12,7 @@ interface Props {
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
   updateCategoryMeta: (categoryId: string, patch: Partial<Pick<Category, 'name' | 'emoji'>>) => void;
+  updateCategoryName: (categoryId: string, name: string) => void;
   deleteCategory: (categoryId: string) => void;
   addItem: (categoryId: string) => void;
   updateItemMeta: (
@@ -31,6 +32,7 @@ export function CategorySection({
   toggleItem,
   toggleSubStep,
   updateCategoryMeta,
+  updateCategoryName,
   deleteCategory,
   addItem,
   updateItemMeta,
@@ -77,7 +79,7 @@ export function CategorySection({
               />
               <input
                 value={category.name}
-                onChange={(e) => updateCategoryMeta(category.id, { name: e.target.value })}
+                onChange={(e) => updateCategoryName(category.id, e.target.value)}
                 className="flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-bold text-lg"
               />
             </div>
