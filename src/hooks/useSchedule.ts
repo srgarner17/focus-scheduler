@@ -26,10 +26,30 @@ async function resetIfStale(): Promise<void> {
   await transactionalUpdate((d) => (d.lastResetDate !== todayKey() ? resetCompletion(d) : d));
 }
 
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+const SAVED_FADE_MS = 2000;
+
 export function useSchedule() {
   const [data, setData] = useState<ScheduleData | null>(null);
   const dataRef = useRef<ScheduleData | null>(null);
   dataRef.current = data;
+
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  // Counts writes queued but not yet settled, so "saved" only fires once
+  // every in-flight write has resolved, not after the first of several.
+  const pendingCountRef = useRef(0);
+  const savedFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The mutation fn from the most recent failed write, so "tap to retry" can
+  // re-queue the exact same transaction rather than needing the caller to
+  // remember and resupply it.
+  const lastFailedMutationRef = useRef<((d: ScheduleData) => ScheduleData) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savedFadeTimeoutRef.current) clearTimeout(savedFadeTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -77,6 +97,40 @@ export function useSchedule() {
   // keystroke could lose to an earlier one that happened to finish last.
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
 
+  // Queues fn's transaction behind whatever this device already has pending,
+  // and reflects its lifecycle in `saveStatus` so the UI can show a parent
+  // whether their edit actually stuck. Used for every user-initiated write —
+  // deliberately NOT used by the background daily-reset check (resetIfStale
+  // calls transactionalUpdate directly), since that runs on a timer/focus
+  // regardless of whether the user touched anything, and shouldn't flash
+  // "Saving…" for something nobody did.
+  function queueTransaction(fn: (d: ScheduleData) => ScheduleData) {
+    pendingCountRef.current += 1;
+    setSaveStatus('saving');
+    if (savedFadeTimeoutRef.current) {
+      clearTimeout(savedFadeTimeoutRef.current);
+      savedFadeTimeoutRef.current = null;
+    }
+    writeQueueRef.current = writeQueueRef.current
+      .then(() => transactionalUpdate(fn))
+      .then(() => {
+        lastFailedMutationRef.current = null;
+        pendingCountRef.current -= 1;
+        if (pendingCountRef.current === 0) {
+          setSaveStatus('saved');
+          savedFadeTimeoutRef.current = setTimeout(() => {
+            setSaveStatus((s) => (s === 'saved' ? 'idle' : s));
+          }, SAVED_FADE_MS);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to save change:', err);
+        lastFailedMutationRef.current = fn;
+        pendingCountRef.current = Math.max(0, pendingCountRef.current - 1);
+        setSaveStatus('error');
+      });
+  }
+
   function mutate(fn: (d: ScheduleData) => ScheduleData) {
     const current = dataRef.current;
     if (!current) return;
@@ -87,11 +141,17 @@ export function useSchedule() {
     setData(fn(current));
     // The actual persisted write reads fresh server data and applies fn to
     // that, so it can't clobber another device's concurrent edit.
-    writeQueueRef.current = writeQueueRef.current
-      .then(() => transactionalUpdate(fn))
-      .catch((err) => {
-        console.error('Failed to save change:', err);
-      });
+    queueTransaction(fn);
+  }
+
+  // Re-queues the last failed write's exact transaction against fresh server
+  // data. Deliberately does NOT touch local state (unlike mutate()) — the
+  // optimistic update from the original attempt is already showing on
+  // screen, so replaying it again here would double-apply anything
+  // non-idempotent, like a toggle.
+  function retrySave() {
+    const fn = lastFailedMutationRef.current;
+    if (fn) queueTransaction(fn);
   }
 
   function updateCategory(categoryId: string, fn: (cat: Category) => Category) {
@@ -202,6 +262,8 @@ export function useSchedule() {
 
   return {
     data,
+    saveStatus,
+    retrySave,
     toggleItem,
     toggleSubStep,
     resetAll,
