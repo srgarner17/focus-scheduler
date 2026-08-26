@@ -7,43 +7,52 @@ import type { ScheduleData } from '../types';
 // with a small in-memory "server document" so these tests exercise our own
 // logic (optimistic updates, the write queue, the reset check) without a
 // real network or persistence layer.
-const { onSnapshotMock, runTransactionMock, setServerDoc, getServerDoc, fireSnapshot } = vi.hoisted(() => {
-  let serverDoc: ScheduleData | undefined;
-  let snapshotCallback: ((snap: { exists: () => boolean; data: () => ScheduleData | undefined }) => void) | null =
-    null;
+const { onSnapshotMock, runTransactionMock, setServerDoc, getServerDoc, fireSnapshot, failNextTransactions } =
+  vi.hoisted(() => {
+    let serverDoc: ScheduleData | undefined;
+    let snapshotCallback: ((snap: { exists: () => boolean; data: () => ScheduleData | undefined }) => void) | null =
+      null;
+    let failCount = 0;
 
-  function currentSnap() {
-    return { exists: () => serverDoc !== undefined, data: () => serverDoc };
-  }
+    function currentSnap() {
+      return { exists: () => serverDoc !== undefined, data: () => serverDoc };
+    }
 
-  const runTransactionMock = vi.fn(async (_db: unknown, updateFn: (t: unknown) => unknown) => {
-    const transaction = {
-      get: vi.fn(async () => currentSnap()),
-      set: vi.fn((_ref: unknown, data: ScheduleData) => {
-        serverDoc = data;
-      }),
+    const runTransactionMock = vi.fn(async (_db: unknown, updateFn: (t: unknown) => unknown) => {
+      if (failCount > 0) {
+        failCount -= 1;
+        throw new Error('simulated write failure');
+      }
+      const transaction = {
+        get: vi.fn(async () => currentSnap()),
+        set: vi.fn((_ref: unknown, data: ScheduleData) => {
+          serverDoc = data;
+        }),
+      };
+      await updateFn(transaction);
+    });
+
+    const onSnapshotMock = vi.fn((_ref: unknown, cb: (snap: ReturnType<typeof currentSnap>) => void) => {
+      snapshotCallback = cb;
+      cb(currentSnap());
+      return () => {
+        snapshotCallback = null;
+      };
+    });
+
+    return {
+      onSnapshotMock,
+      runTransactionMock,
+      setServerDoc: (d: ScheduleData | undefined) => {
+        serverDoc = d;
+      },
+      getServerDoc: () => serverDoc,
+      fireSnapshot: () => snapshotCallback?.(currentSnap()),
+      failNextTransactions: (n = 1) => {
+        failCount = n;
+      },
     };
-    await updateFn(transaction);
   });
-
-  const onSnapshotMock = vi.fn((_ref: unknown, cb: (snap: ReturnType<typeof currentSnap>) => void) => {
-    snapshotCallback = cb;
-    cb(currentSnap());
-    return () => {
-      snapshotCallback = null;
-    };
-  });
-
-  return {
-    onSnapshotMock,
-    runTransactionMock,
-    setServerDoc: (d: ScheduleData | undefined) => {
-      serverDoc = d;
-    },
-    getServerDoc: () => serverDoc,
-    fireSnapshot: () => snapshotCallback?.(currentSnap()),
-  };
-});
 
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(() => ({})),
@@ -62,6 +71,7 @@ beforeEach(() => {
   setServerDoc(undefined);
   onSnapshotMock.mockClear();
   runTransactionMock.mockClear();
+  failNextTransactions(0);
 });
 
 afterEach(() => {
@@ -170,5 +180,82 @@ describe('useSchedule', () => {
 
     expect(result.current.data!.categories[0].items[0].title).toBe('abc');
     await waitFor(() => expect(getServerDoc()?.categories[0].items[0].title).toBe('abc'));
+  });
+
+  it('reports saving immediately, then saved once the write settles, fading back to idle after a delay', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const itemId = category.items[0].id;
+    expect(result.current.saveStatus).toBe('idle');
+
+    // Fake only setTimeout (not Date/setInterval), and only from here, so the
+    // save-fade timeout below is scheduled as a fake timer we can fast-
+    // forward — mounting above still relied on real timers throughout.
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      act(() => {
+        result.current.toggleItem(category.id, itemId);
+      });
+      // Synchronous, same tick — a parent should see "Saving…" the instant
+      // they act, not only once the transaction resolves.
+      expect(result.current.saveStatus).toBe('saving');
+
+      // The mocked transaction settles via microtasks, not a timer, so it
+      // still resolves under fake timers — just flush it manually instead
+      // of using waitFor (whose polling would itself need fake time to pass).
+      await act(async () => {
+        for (let i = 0; i < 10; i++) {
+          await Promise.resolve();
+        }
+      });
+      expect(result.current.saveStatus).toBe('saved');
+
+      act(() => {
+        vi.advanceTimersByTime(2100);
+      });
+      expect(result.current.saveStatus).toBe('idle');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('surfaces a save error and retries the exact same write via retrySave, without double-applying it', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const itemId = category.items[0].id;
+
+    failNextTransactions(1);
+    act(() => {
+      result.current.toggleItem(category.id, itemId);
+    });
+    await waitFor(() => expect(result.current.saveStatus).toBe('error'));
+
+    // The optimistic local update already reflects the toggle even though
+    // the write failed...
+    expect(result.current.data!.categories[0].items[0].subSteps.every((s) => s.done)).toBe(true);
+    // ...but the server never actually got it.
+    expect(getServerDoc()?.categories[0].items[0].subSteps.every((s) => s.done)).toBe(false);
+
+    act(() => {
+      result.current.retrySave();
+    });
+    await waitFor(() => expect(result.current.saveStatus).toBe('saved'));
+
+    // Retrying re-queues the same transaction against fresh server data —
+    // it must not re-run the toggle a second time (which would flip it back
+    // off) just because it re-applies the original mutation function.
+    expect(getServerDoc()?.categories[0].items[0].subSteps.every((s) => s.done)).toBe(true);
+    expect(result.current.data!.categories[0].items[0].subSteps.every((s) => s.done)).toBe(true);
+  });
+
+  it('retrySave is a no-op when there is nothing to retry', async () => {
+    const { result } = await mountSchedule();
+    const callsAfterMount = runTransactionMock.mock.calls.length;
+
+    act(() => {
+      result.current.retrySave();
+    });
+    expect(result.current.saveStatus).toBe('idle');
+    expect(runTransactionMock.mock.calls.length).toBe(callsAfterMount);
   });
 });

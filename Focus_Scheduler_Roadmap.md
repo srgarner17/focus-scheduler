@@ -1,20 +1,20 @@
 # Focus Plan — Roadmap
 
-_Last updated: 2026-08-25_
+_Last updated: 2026-08-26_
 
 A living list of what's next and open for Focus Plan, the daily checklist app for keeping him on track with mornings, chores, and soccer prep. Shipped work isn't tracked here in detail — the [PR history](https://github.com/srgarner17/focus-scheduler/pulls?q=is%3Apr+is%3Amerged) and commit log are the source of truth for what's already done; this doc stays focused on what's pending.
 
-## Restart point (2026-08-25)
+## Restart point (2026-08-26)
 
 If this session drops, here's exactly where things stand and how to pick back up.
 
 - **Working tree:** clean, nothing uncommitted anywhere.
-- **`master`** has everything merged through PR #20 (Tier 2 automated tests for the `useSchedule` hook). Nothing else outstanding on master.
+- **`master`** has everything merged through PR #22 (calendar integration + Done-button feedback added to this roadmap). Nothing else outstanding on master.
 - **Canonical URL:** https://srgarner17.github.io/focus-scheduler/ (GitHub Pages). Vercel (https://focus-scheduler-sand.vercel.app/) is a working backup, not primary.
 - **Data is shared and synced** — both parents' devices and the iPad read/write the same Firebase Firestore document in real time. There is no separate "test" environment; every deployment (prod or PR preview) hits the same real household data.
-- **Immediate next action:** the automated test suite is fully built — Tiers 1-3 all done, PR open for Tier 3 (`CategorySection`/`ItemCard` component behavior) — see [Automated testing scope](#automated-testing-scope). The **editing UX redesign** is fully scoped and is the next pickup once that PR merges — see [Editing UX redesign](#editing-ux-redesign-ready-to-pick-up-later).
+- **Immediate next action:** the editing UX redesign is being delivered as a sequence of small, independently-verifiable steps rather than one big change (see [Incremental delivery plan](#editing-ux-redesign-ready-to-pick-up-later)) — Step 1 (`saveStatus` + the header indicator) is done, PR open. Step 2 (prove the debounce pattern on the child's-name field) is next once that PR merges.
 - **Repo state:** public, branch protection on `master` (PR required, admin bypass allowed), feature-branch workflow is the standing default. A new Claude Code session in this repo already has this saved in memory and shouldn't need re-explaining.
-- **Working style note:** build one item at a time, verify it, open its PR, then stop and wait rather than chaining multiple features together unprompted. Update this roadmap proactively after merges, not just when asked.
+- **Working style note:** build one item at a time, verify it, open its PR, then stop and wait rather than chaining multiple features together unprompted. Update this roadmap proactively after merges, not just when asked (including this "Restart point" block itself — it's gone stale a few times when only a section further down got updated).
 
 ## Open decisions
 
@@ -58,18 +58,26 @@ Scoped 2026-08-25, not yet started. The current draft/Done-button mechanism (PRs
 **What changes:**
 - **Remove the `ItemCard`-level draft entirely** (`Draft`/`dirty`/`commitDraft`/`finishEditing`/`draftRef`, and the per-item "Done" button). Text fields (title, notes, sub-step text, child's name) go back to calling `updateItemMeta` / `updateSubStepText` / `setChildName` directly on every `onChange`, same shape as before PR #13's per-keystroke-write days.
 - **Move debouncing into the data layer, not the component.** In `useSchedule.ts`, wrap the text-field mutation path so the *local* optimistic state still updates synchronously on every keystroke (this is what the cursor-jump fix in PR #5 depends on — must not regress it), but the actual Firestore transaction for that field is delayed ~500–600ms after the last keystroke, resetting the timer on each new one. Non-text actions (toggling done, adding/deleting an item or category, the day picker, the one-time/recurring switch) stay immediate — they're already discrete, cheap, one-shot writes with no typing race to debounce.
-- **Add a `saveStatus` value exposed from the hook** (`idle` / `saving` / `saved` / `error`), derived from whether any debounce timer or in-flight transaction is currently pending, plus whether the most recent write settled or rejected.
-- **Add a small status indicator in the header** (near the Edit button or progress card): a subtle "Saving…" while pending, "Saved" that fades after a couple seconds once settled, "Couldn't save — tap to retry" if a write's promise rejects. This is the actual trust-builder — a parent should never have to wonder whether an edit stuck.
+- **Add a `saveStatus` value exposed from the hook** (`idle` / `saving` / `saved` / `error`), derived from whether any debounce timer or in-flight transaction is currently pending, plus whether the most recent write settled or rejected. **Done (2026-08-26) — see Step 1 below.**
+- **Add a small status indicator in the header** (near the Edit button or progress card): a subtle "Saving…" while pending, "Saved" that fades after a couple seconds once settled, "Couldn't save — tap to retry" if a write's promise rejects. This is the actual trust-builder — a parent should never have to wonder whether an edit stuck. **Done (2026-08-26) — see Step 1 below.**
 - **Undo for destructive actions, not every edit.** Add a brief "Category deleted — Undo" / "Item deleted — Undo" toast for delete actions specifically (the one place an accidental tap is genuinely hard to recover from); routine text edits don't need it since nothing is hidden or buffered anymore — what's on screen is what's saved (or about to be), so fixing a typo is just retyping it.
 - **Keep as-is:** the Firestore transaction mechanism itself (correct, not the source of these bugs), real-time sync, the PIN-gated parental lock concept (still needed — reframe as "unlocked for editing" rather than a heavyweight "mode" if it helps, but the underlying gate stays), expand/collapse for progressive disclosure (notes/day-picker/sub-steps), and everything unrelated to saving (scheduling logic, auto-collapse, layout).
 
 **Explicitly out of scope:** redesigning the visual layout or information architecture of the checklist itself — this is scoped purely to the save mechanism and edit affordances.
 
+**Incremental delivery plan (added 2026-08-26):** rather than one large PR, this is being built as a sequence of small, independently-verifiable steps — each its own branch/PR, each tested live in the browser (throwaway Firestore doc, per the project's standard method) before moving to the next:
+
+1. **Save-status indicator, wired to the *existing* write queue — no debounce/draft changes yet.** `saveStatus` is computed purely from the current `mutate()`/transaction lifecycle (`queueTransaction` in `useSchedule.ts`), so this ships the actual trust-builder UI in complete isolation from the riskier parts of the redesign. **Done 2026-08-26** — verified live: "Saving…" appears the instant a toggle fires, "Saved" shows once the transaction settles, fades to idle after ~2s. A `retrySave()` that re-queues the exact failed transaction (without re-applying the optimistic local update, so a toggle can't get double-applied) is unit-tested but couldn't be verified live — no network-throttling control available in this session's browser tooling to force a real Firestore failure.
+2. **Prove the debounce pattern on the child's-name field** (`App.tsx`, currently commits on blur) — switch it to per-keystroke calls through a new debounced path in the hook. Small blast radius, easy to validate (type fast, confirm no cursor jump, confirm the write lands after a pause).
+3. **Extend debounce to category name/emoji** — same pattern, still outside `ItemCard`.
+4. **The big one: apply debounced autosave to `ItemCard`'s text fields and delete the draft machinery** (including the per-item Done button — this is also where the user feedback below about Done showing unconditionally gets resolved, by removing it entirely). Validate by re-running the three historical bug scenarios this step is designed to eliminate (cursor-jump, unmount-mid-edit loss, flash-revert), and update Tier 3's `ItemCard` tests' trigger step (already flagged above).
+5. **Undo-for-deletes** — fully independent, smallest and most isolated, natural last step regardless of order.
+
 **Sequencing note (revised 2026-08-25):** the automated test suite (all 3 tiers) is done, ahead of this redesign as planned — see [Automated testing scope](#automated-testing-scope). Tier 1 (pure functions) and Tier 2 (the `useSchedule` hook's public methods) are fully unaffected by this redesign, since the hook's public API doesn't change shape, only its internal debounce timing for text fields — real regression coverage for the redesign. Tier 3's `CategorySection` tests are similarly unaffected. Tier 3's `ItemCard` tests, however, do drive the current "click Done to commit" interaction directly (there's no other way to trigger a commit in today's UI) — those will need their trigger step updated once the per-item Done button is removed, though what they assert (the toggle switches correctly, only the changed field is patched) stays conceptually valid.
 
 ## Next steps
 
-1. **Editing UX redesign** — see [full scope](#editing-ux-redesign-ready-to-pick-up-later) below. Replaces the draft/Done-button mechanism (shipped and working, PRs #15–16) with autosave + a sync-status indicator, removing the state layer that's caused most of the recent bugs rather than continuing to patch it. The automated test suite (see [Automated testing scope](#automated-testing-scope)) is done, so this is next up.
+1. **Editing UX redesign, Step 2 onward** — see [full scope + incremental delivery plan](#editing-ux-redesign-ready-to-pick-up-later) below. Step 1 (save-status indicator) is done (2026-08-26); Step 2 (prove the debounce pattern on the child's-name field) is next.
 2. **Reordering** — drag (or similar) to reorder individual items within a category, and to reorder categories themselves. Nothing built yet; current order is just array order from when things were added.
 3. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
 4. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.

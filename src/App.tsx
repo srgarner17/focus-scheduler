@@ -7,6 +7,7 @@ import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
 import { WeekView } from './components/WeekView';
 import { PinPrompt } from './components/PinPrompt';
+import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 
 function App() {
   const s = useSchedule();
@@ -86,19 +87,22 @@ function App() {
                 </h1>
               )}
             </div>
-            {view === 'today' && (
-              <button
-                type="button"
-                onClick={handleEditClick}
-                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium ${
-                  editMode
-                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                    : 'bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/60'
-                }`}
-              >
-                {editMode ? 'Done editing' : '⚙️ Edit'}
-              </button>
-            )}
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <SaveStatusIndicator status={s.saveStatus} onRetry={s.retrySave} />
+              {view === 'today' && (
+                <button
+                  type="button"
+                  onClick={handleEditClick}
+                  className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium ${
+                    editMode
+                      ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                      : 'bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/60'
+                  }`}
+                >
+                  {editMode ? 'Done editing' : '⚙️ Edit'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex rounded-full bg-black/5 p-1 dark:bg-white/10" role="tablist">
