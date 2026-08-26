@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSchedule } from './hooks/useSchedule';
 import { isItemDone, isItemScheduledOn } from './types';
 import { friendlyDate, todayDayIndex, todayKey } from './lib/date';
@@ -13,17 +13,8 @@ function App() {
   const s = useSchedule();
   const [editMode, setEditMode] = useState(false);
   const [view, setView] = useState<'today' | 'week'>('today');
-  const [nameDraft, setNameDraft] = useState('');
-  const [nameSynced, setNameSynced] = useState(false);
   const [pinPromptOpen, setPinPromptOpen] = useState(false);
   const [newPinDraft, setNewPinDraft] = useState('');
-
-  useEffect(() => {
-    if (s.data && !nameSynced) {
-      setNameDraft(s.data.childName);
-      setNameSynced(true);
-    }
-  }, [s.data, nameSynced]);
 
   function handleEditClick() {
     if (editMode) {
@@ -75,9 +66,8 @@ function App() {
               <p className="text-sm text-black/50 dark:text-white/50">{friendlyDate()}</p>
               {editMode ? (
                 <input
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  onBlur={() => s.setChildName(nameDraft)}
+                  value={data.childName}
+                  onChange={(e) => s.setChildName(e.target.value)}
                   placeholder="His name"
                   className="mt-1 w-full min-w-0 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-2xl font-bold"
                 />

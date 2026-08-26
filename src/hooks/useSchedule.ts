@@ -29,6 +29,7 @@ async function resetIfStale(): Promise<void> {
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const SAVED_FADE_MS = 2000;
+const DEBOUNCE_MS = 600;
 
 export function useSchedule() {
   const [data, setData] = useState<ScheduleData | null>(null);
@@ -45,10 +46,28 @@ export function useSchedule() {
   // remember and resupply it.
   const lastFailedMutationRef = useRef<((d: ScheduleData) => ScheduleData) | null>(null);
 
+  // Pending debounced writes, keyed by field (e.g. "childName") so typing in
+  // one field never resets or cancels another field's pending write.
+  const debouncedWritesRef = useRef<
+    Map<string, { timeoutId: ReturnType<typeof setTimeout>; fn: (d: ScheduleData) => ScheduleData }>
+  >(new Map());
+
   useEffect(() => {
     return () => {
       if (savedFadeTimeoutRef.current) clearTimeout(savedFadeTimeoutRef.current);
+      // Flush anything still pending rather than dropping it silently — this
+      // only helps for an in-app unmount (e.g. React StrictMode, a route
+      // change), not an actual tab close, since JS stops running immediately
+      // then regardless of what a cleanup function tries to do. Uses
+      // runTransactionTracked (not queueTransaction) since beginPending()
+      // already ran when each debounce started.
+      debouncedWritesRef.current.forEach(({ timeoutId, fn }) => {
+        clearTimeout(timeoutId);
+        runTransactionTracked(fn);
+      });
+      debouncedWritesRef.current.clear();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -97,20 +116,22 @@ export function useSchedule() {
   // keystroke could lose to an earlier one that happened to finish last.
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  // Queues fn's transaction behind whatever this device already has pending,
-  // and reflects its lifecycle in `saveStatus` so the UI can show a parent
-  // whether their edit actually stuck. Used for every user-initiated write —
-  // deliberately NOT used by the background daily-reset check (resetIfStale
-  // calls transactionalUpdate directly), since that runs on a timer/focus
-  // regardless of whether the user touched anything, and shouldn't flash
-  // "Saving…" for something nobody did.
-  function queueTransaction(fn: (d: ScheduleData) => ScheduleData) {
+  // Marks one unit of work as pending — a debounce countdown counts just as
+  // much as an in-flight transaction, since either way there's an edit that
+  // hasn't reached the server yet and a parent shouldn't be told "Saved."
+  function beginPending() {
     pendingCountRef.current += 1;
     setSaveStatus('saving');
     if (savedFadeTimeoutRef.current) {
       clearTimeout(savedFadeTimeoutRef.current);
       savedFadeTimeoutRef.current = null;
     }
+  }
+
+  // Runs fn's transaction behind whatever this device already has pending,
+  // and resolves the ONE unit of pending work that beginPending() counted
+  // for it. Callers are responsible for calling beginPending() first.
+  function runTransactionTracked(fn: (d: ScheduleData) => ScheduleData) {
     writeQueueRef.current = writeQueueRef.current
       .then(() => transactionalUpdate(fn))
       .then(() => {
@@ -129,6 +150,16 @@ export function useSchedule() {
         pendingCountRef.current = Math.max(0, pendingCountRef.current - 1);
         setSaveStatus('error');
       });
+  }
+
+  // Queues fn's transaction immediately — used for every non-debounced,
+  // user-initiated write. Deliberately NOT used by the background
+  // daily-reset check (resetIfStale calls transactionalUpdate directly),
+  // since that runs on a timer/focus regardless of whether the user touched
+  // anything, and shouldn't flash "Saving…" for something nobody did.
+  function queueTransaction(fn: (d: ScheduleData) => ScheduleData) {
+    beginPending();
+    runTransactionTracked(fn);
   }
 
   function mutate(fn: (d: ScheduleData) => ScheduleData) {
@@ -152,6 +183,38 @@ export function useSchedule() {
   function retrySave() {
     const fn = lastFailedMutationRef.current;
     if (fn) queueTransaction(fn);
+  }
+
+  // Same optimistic-local-update contract as mutate(), but the Firestore
+  // write itself is delayed until `key` has been quiet for DEBOUNCE_MS —
+  // for text fields, where writing on every keystroke would mean the queue
+  // (and saveStatus) never settles while someone's still typing. Each new
+  // call for the same key replaces whatever was still pending for it; since
+  // fn is applied to FRESH server data at commit time, only the latest
+  // value actually needs to be sent, not every intermediate keystroke.
+  //
+  // The pending unit of work is counted from the FIRST keystroke of a given
+  // debounce window, not from when the timer finally fires — someone
+  // mid-typing has unsaved changes right now, and saveStatus should say
+  // "saving" through the whole countdown, not just once the network request
+  // starts after they've already paused.
+  function mutateDebounced(key: string, fn: (d: ScheduleData) => ScheduleData) {
+    const current = dataRef.current;
+    if (!current) return;
+    setData(fn(current));
+
+    const existing = debouncedWritesRef.current.get(key);
+    if (existing) {
+      clearTimeout(existing.timeoutId);
+    } else {
+      beginPending();
+    }
+
+    const timeoutId = setTimeout(() => {
+      debouncedWritesRef.current.delete(key);
+      runTransactionTracked(fn);
+    }, DEBOUNCE_MS);
+    debouncedWritesRef.current.set(key, { timeoutId, fn });
   }
 
   function updateCategory(categoryId: string, fn: (cat: Category) => Category) {
@@ -190,7 +253,7 @@ export function useSchedule() {
   }
 
   function setChildName(name: string) {
-    mutate((d) => ({ ...d, childName: name }));
+    mutateDebounced('childName', (d) => ({ ...d, childName: name }));
   }
 
   function setEditPin(pin: string) {

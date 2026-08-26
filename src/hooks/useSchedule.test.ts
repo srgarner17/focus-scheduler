@@ -191,7 +191,7 @@ describe('useSchedule', () => {
     // Fake only setTimeout (not Date/setInterval), and only from here, so the
     // save-fade timeout below is scheduled as a fake timer we can fast-
     // forward — mounting above still relied on real timers throughout.
-    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       act(() => {
         result.current.toggleItem(category.id, itemId);
@@ -257,5 +257,90 @@ describe('useSchedule', () => {
     });
     expect(result.current.saveStatus).toBe('idle');
     expect(runTransactionMock.mock.calls.length).toBe(callsAfterMount);
+  });
+
+  it('debounces setChildName, sending only the final value after a pause, not one write per keystroke', async () => {
+    const { result } = await mountSchedule();
+    const callsBeforeTyping = runTransactionMock.mock.calls.length;
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.setChildName('S'));
+      expect(result.current.data!.childName).toBe('S');
+      // Same tick — a parent should see "Saving…" the instant they type,
+      // not only once the debounce window elapses.
+      expect(result.current.saveStatus).toBe('saving');
+
+      act(() => vi.advanceTimersByTime(300));
+      act(() => result.current.setChildName('Sa'));
+      expect(result.current.data!.childName).toBe('Sa');
+
+      act(() => vi.advanceTimersByTime(300));
+      act(() => result.current.setChildName('Sam'));
+      expect(result.current.data!.childName).toBe('Sam');
+
+      // Still within the debounce window after every keystroke above (each
+      // one arrived under 600ms after the last) — nothing sent yet.
+      expect(runTransactionMock.mock.calls.length).toBe(callsBeforeTyping);
+
+      act(() => vi.advanceTimersByTime(650));
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+
+      // Exactly one transaction for the whole typing session, carrying the
+      // final value — not three, one per keystroke.
+      expect(runTransactionMock.mock.calls.length).toBe(callsBeforeTyping + 1);
+      expect(getServerDoc()?.childName).toBe('Sam');
+      expect(result.current.saveStatus).toBe('saved');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not block an unrelated immediate write while a debounced write is still pending', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const itemId = category.items[0].id;
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.setChildName('Sam')); // starts a 600ms debounce
+      act(() => result.current.toggleItem(category.id, itemId)); // immediate
+
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      // The immediate toggle went through even though the name edit hasn't
+      // debounced yet.
+      expect(getServerDoc()?.categories[0].items[0].subSteps.every((s) => s.done)).toBe(true);
+      // saveStatus stays "saving" — the name write is still pending.
+      expect(result.current.saveStatus).toBe('saving');
+
+      act(() => vi.advanceTimersByTime(650));
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(getServerDoc()?.childName).toBe('Sam');
+      expect(result.current.saveStatus).toBe('saved');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('flushes a pending debounced write on unmount instead of dropping it', async () => {
+    const { result, unmount } = await mountSchedule();
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.setChildName('Sam'));
+      unmount();
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(getServerDoc()?.childName).toBe('Sam');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
