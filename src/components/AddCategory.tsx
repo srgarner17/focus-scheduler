@@ -68,7 +68,7 @@ export function AddCategory({ onAdd }: Props) {
         <button type="button" onClick={submit} className="rounded-lg bg-black/5 dark:bg-white/10 px-3 py-1.5 text-sm font-medium">
           Add category
         </button>
-        <button type="button" onClick={() => setOpen(false)} className="text-sm text-black/40">
+        <button type="button" onClick={() => setOpen(false)} className="text-sm text-black/40 dark:text-white/40">
           Cancel
         </button>
       </div>

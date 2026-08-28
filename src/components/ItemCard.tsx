@@ -239,7 +239,7 @@ export function ItemCard({
                     <button
                       type="button"
                       onClick={() => deleteSubStep(categoryId, item.id, s.id)}
-                      className="shrink-0 text-black/40 hover:text-red-500 text-sm px-1"
+                      className="shrink-0 text-black/40 hover:text-red-500 dark:text-white/40 dark:hover:text-red-400 text-sm px-1"
                       aria-label="Delete step"
                     >
                       ✕

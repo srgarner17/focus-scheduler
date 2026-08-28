@@ -223,7 +223,7 @@ function App() {
               onClick={() => {
                 if (confirm("Reset all of today's checkmarks?")) s.resetAll();
               }}
-              className="text-sm text-black/40 hover:text-black/60"
+              className="text-sm text-black/40 hover:text-black/60 dark:text-white/40 dark:hover:text-white/60"
             >
               Reset today's checkmarks
             </button>
