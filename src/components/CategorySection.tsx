@@ -27,6 +27,7 @@ interface Props {
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
   updateSubStepText: (categoryId: string, itemId: string, subStepId: string, text: string) => void;
   deleteSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
+  reorderSubStep: (categoryId: string, itemId: string, subStepId: string, direction: 'up' | 'down') => void;
 }
 
 export function CategorySection({
@@ -46,6 +47,7 @@ export function CategorySection({
   addSubStep,
   updateSubStepText,
   deleteSubStep,
+  reorderSubStep,
 }: Props) {
   const color = colorStyles[category.color];
   const today = todayDayIndex();
@@ -138,6 +140,7 @@ export function CategorySection({
               addSubStep={addSubStep}
               updateSubStepText={updateSubStepText}
               deleteSubStep={deleteSubStep}
+              reorderSubStep={reorderSubStep}
             />
           ))}
           {displayedItems.length === 0 && !editMode && (

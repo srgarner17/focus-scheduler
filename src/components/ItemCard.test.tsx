@@ -29,6 +29,7 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
   const updateItemNotes = vi.fn();
   const updateItemTime = vi.fn();
   const updateSubStepText = vi.fn();
+  const reorderSubStep = vi.fn();
   const utils = render(
     <ItemCard
       categoryId="cat-1"
@@ -45,13 +46,14 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
       addSubStep={noop}
       updateSubStepText={updateSubStepText}
       deleteSubStep={noop}
+      reorderSubStep={reorderSubStep}
       {...overrides}
     />,
   );
   // The Repeats-weekly/One-time toggle and notes field only show once
   // expanded.
   fireEvent.click(screen.getByRole('button', { name: /expand details/i }));
-  return { ...utils, updateItemMeta, updateItemTitle, updateItemNotes, updateItemTime, updateSubStepText };
+  return { ...utils, updateItemMeta, updateItemTitle, updateItemNotes, updateItemTime, updateSubStepText, reorderSubStep };
 }
 
 describe('ItemCard recurring/one-time toggle', () => {
@@ -123,5 +125,32 @@ describe('ItemCard text fields autosave directly, no draft', () => {
 
     expect(updateSubStepText).toHaveBeenCalledWith('cat-1', 'item-1', 's2', 'Shin guards (both)');
     expect(updateSubStepText).not.toHaveBeenCalledWith('cat-1', 'item-1', 's1', expect.anything());
+  });
+
+  it('calls reorderSubStep with the right direction, and disables the button at each boundary', () => {
+    const item = makeItem({
+      subSteps: [
+        { id: 's1', text: 'Cleats', done: false },
+        { id: 's2', text: 'Shin guards', done: false },
+        { id: 's3', text: 'Water bottle', done: false },
+      ],
+    });
+    const { reorderSubStep } = renderItem(item);
+
+    const upButtons = screen.getAllByRole('button', { name: 'Move step up' });
+    const downButtons = screen.getAllByRole('button', { name: 'Move step down' });
+
+    // First step: nothing above it to move up into.
+    expect(upButtons[0]).toBeDisabled();
+    expect(downButtons[0]).not.toBeDisabled();
+    // Last step: nothing below it to move down into.
+    expect(upButtons[2]).not.toBeDisabled();
+    expect(downButtons[2]).toBeDisabled();
+
+    fireEvent.click(downButtons[1]);
+    expect(reorderSubStep).toHaveBeenCalledWith('cat-1', 'item-1', 's2', 'down');
+
+    fireEvent.click(upButtons[1]);
+    expect(reorderSubStep).toHaveBeenCalledWith('cat-1', 'item-1', 's2', 'up');
   });
 });

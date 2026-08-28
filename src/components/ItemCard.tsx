@@ -20,6 +20,7 @@ interface Props {
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
   updateSubStepText: (categoryId: string, itemId: string, subStepId: string, text: string) => void;
   deleteSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
+  reorderSubStep: (categoryId: string, itemId: string, subStepId: string, direction: 'up' | 'down') => void;
 }
 
 export function ItemCard({
@@ -37,6 +38,7 @@ export function ItemCard({
   addSubStep,
   updateSubStepText,
   deleteSubStep,
+  reorderSubStep,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [newSubStep, setNewSubStep] = useState('');
@@ -195,7 +197,7 @@ export function ItemCard({
           )}
 
           <ul className="space-y-1.5">
-            {item.subSteps.map((s) => (
+            {item.subSteps.map((s, index) => (
               <li key={s.id} className="flex items-center gap-2">
                 <button
                   type="button"
@@ -214,8 +216,26 @@ export function ItemCard({
                     <input
                       value={s.text}
                       onChange={(e) => updateSubStepText(categoryId, item.id, s.id, e.target.value)}
-                      className="flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
+                      className="min-w-0 flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
                     />
+                    <button
+                      type="button"
+                      onClick={() => reorderSubStep(categoryId, item.id, s.id, 'up')}
+                      disabled={index === 0}
+                      aria-label="Move step up"
+                      className="shrink-0 px-0.5 text-sm text-black/40 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/40 dark:hover:text-white/70"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => reorderSubStep(categoryId, item.id, s.id, 'down')}
+                      disabled={index === item.subSteps.length - 1}
+                      aria-label="Move step down"
+                      className="shrink-0 px-0.5 text-sm text-black/40 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/40 dark:hover:text-white/70"
+                    >
+                      ▼
+                    </button>
                     <button
                       type="button"
                       onClick={() => deleteSubStep(categoryId, item.id, s.id)}

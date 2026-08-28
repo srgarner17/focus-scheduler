@@ -54,6 +54,7 @@ const baseProps = {
   addSubStep: noop,
   updateSubStepText: noop,
   deleteSubStep: noop,
+  reorderSubStep: noop,
 };
 
 describe('CategorySection auto-collapse', () => {

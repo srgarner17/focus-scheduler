@@ -158,6 +158,7 @@ function App() {
                   addSubStep={s.addSubStep}
                   updateSubStepText={s.updateSubStepText}
                   deleteSubStep={s.deleteSubStep}
+                  reorderSubStep={s.reorderSubStep}
                 />
               ))}
 
