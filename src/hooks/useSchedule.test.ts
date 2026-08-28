@@ -499,4 +499,36 @@ describe('useSchedule', () => {
       vi.useRealTimers();
     }
   });
+
+  it('does not let an incoming snapshot overwrite text still mid-debounce (real-device typing-sync regression)', async () => {
+    const { result } = await mountSchedule();
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      act(() => result.current.setChildName('Sam'));
+      expect(result.current.data!.childName).toBe('Sam');
+
+      // Simulate a snapshot arriving mid-debounce — from another device's
+      // edit, the periodic reset check, or just an echo of an earlier write
+      // from this same device. The mocked "server" still has the old value
+      // (nothing has been sent for this debounce yet), so if this were
+      // applied it would visually revert what's being typed.
+      act(() => fireSnapshot());
+      expect(result.current.data!.childName).toBe('Sam');
+
+      // Once the debounce fires and settles, this device is caught up with
+      // the server again, and a subsequent snapshot applies normally.
+      act(() => vi.advanceTimersByTime(650));
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(result.current.saveStatus).toBe('saved');
+
+      setServerDoc({ ...getServerDoc()!, childName: 'Changed on another device' });
+      act(() => fireSnapshot());
+      expect(result.current.data!.childName).toBe('Changed on another device');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
