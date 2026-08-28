@@ -531,4 +531,35 @@ describe('useSchedule', () => {
       vi.useRealTimers();
     }
   });
+
+  it('reorderSubStep swaps a sub-step with its neighbor, immediately, and is a no-op at either end', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const item = category.items[0];
+    const originalOrder = item.subSteps.map((s) => s.id);
+    expect(originalOrder.length).toBeGreaterThanOrEqual(3);
+
+    act(() => {
+      result.current.reorderSubStep(category.id, item.id, originalOrder[1], 'up');
+    });
+    // Same tick — immediate, not debounced, like the day picker/toggle.
+    const afterUp = result.current.data!.categories[0].items[0].subSteps.map((s) => s.id);
+    expect(afterUp).toEqual([originalOrder[1], originalOrder[0], ...originalOrder.slice(2)]);
+    await waitFor(() =>
+      expect(getServerDoc()?.categories[0].items[0].subSteps.map((s) => s.id)).toEqual(afterUp),
+    );
+
+    // Moving the first step up, or the last step down, has nothing to swap
+    // with — no-op, not a crash or a wraparound.
+    act(() => {
+      result.current.reorderSubStep(category.id, item.id, afterUp[0], 'up');
+    });
+    expect(result.current.data!.categories[0].items[0].subSteps.map((s) => s.id)).toEqual(afterUp);
+
+    const lastId = afterUp[afterUp.length - 1];
+    act(() => {
+      result.current.reorderSubStep(category.id, item.id, lastId, 'down');
+    });
+    expect(result.current.data!.categories[0].items[0].subSteps.map((s) => s.id)).toEqual(afterUp);
+  });
 });

@@ -374,6 +374,20 @@ export function useSchedule() {
     }));
   }
 
+  // Swaps a sub-step with its neighbor in the given direction. A no-op at
+  // either end of the list (nothing to swap with) rather than wrapping
+  // around or erroring.
+  function reorderSubStep(categoryId: string, itemId: string, subStepId: string, direction: 'up' | 'down') {
+    updateItem(categoryId, itemId, (it) => {
+      const index = it.subSteps.findIndex((s) => s.id === subStepId);
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (index === -1 || targetIndex < 0 || targetIndex >= it.subSteps.length) return it;
+      const subSteps = [...it.subSteps];
+      [subSteps[index], subSteps[targetIndex]] = [subSteps[targetIndex], subSteps[index]];
+      return { ...it, subSteps };
+    });
+  }
+
   return {
     data,
     saveStatus,
@@ -396,5 +410,6 @@ export function useSchedule() {
     addSubStep,
     updateSubStepText,
     deleteSubStep,
+    reorderSubStep,
   };
 }
