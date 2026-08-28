@@ -1,6 +1,6 @@
 # Focus Plan — Roadmap
 
-_Last updated: 2026-08-26_
+_Last updated: 2026-08-28_
 
 A living list of what's next and open for Focus Plan, the daily checklist app for keeping him on track with mornings, chores, and soccer prep. Shipped work isn't tracked here in detail — the [PR history](https://github.com/srgarner17/focus-scheduler/pulls?q=is%3Apr+is%3Amerged) and commit log are the source of truth for what's already done; this doc stays focused on what's pending.
 
@@ -97,7 +97,8 @@ Scoped 2026-08-25. Steps 1-4 of 5 done as of 2026-08-26 — see [Incremental del
 3. **Links in item descriptions** — an optional link per item (e.g. a video of a soccer drill) rendered as a clear "▶ Watch" button, so he can quickly see how to do something instead of just reading text. Opens in a new tab; no inline video player planned (too much complexity for the payoff, especially with YouTube embeds).
 4. **Scope notifications** — even though the build is deferred, worth thinking through *how* parents would actually be notified (push notification vs. something simpler) before committing to the Cloud Functions approach.
 5. **Calendar integration** — just captured 2026-08-25, not yet scoped. Direction still open: export the schedule (or just one-time items) into a calendar app a parent already uses, pull an external calendar (e.g. the soccer team's practice/game schedule) into the app instead, or both; one-way vs. two-way sync. Needs a proper scoping pass before it's built.
-6. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
+6. **Flexible recurrence (beyond weekly)** — just captured 2026-08-28, not yet scoped. Today an item is either "some subset of weekdays, every week" (`days`) or "exactly one date, ever" (`date`) — nothing in between, like every-other-week or monthly. Every-N-days (e.g. biweekly) is a clean, purely client-side extension: an optional interval + anchor date, extending `isItemScheduledOn` (already has full Tier 1 coverage to build on). "Monthly" is a separate, less obvious case — calendar months vary in length, so "every 30 days" and "same date each month" aren't the same thing; needs its own scoping decision before building. No infra needed either way (unlike calendar integration/notifications), so this is buildable in a small increment whenever it's picked up.
+7. **(Nice-to-have) custom app icon** — the home-screen icon still uses the generic default favicon from setup, not a designed icon.
 
 ## Quick reference
 
