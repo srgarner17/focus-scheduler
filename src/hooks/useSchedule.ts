@@ -80,6 +80,17 @@ export function useSchedule() {
         if (cancelled) return;
         unsubscribe = onSnapshot(scheduleDocRef, (snap) => {
           if (!snap.exists()) return;
+          // Skip applying an incoming snapshot while this device has any
+          // edit not yet confirmed (a pending debounce, or an in-flight
+          // write) — otherwise a stale server snapshot can overwrite text
+          // being actively typed, visually "rewinding" it mid-edit. This is
+          // exactly the race the old per-item draft used to shield against
+          // by keeping typed text out of `data` entirely; removing that
+          // draft in the editing UX redesign (Steps 2-4) reopened it here.
+          // Once pendingCountRef returns to 0, the next snapshot — which
+          // will reflect this device's own now-confirmed writes — applies
+          // normally.
+          if (pendingCountRef.current > 0) return;
           setData(normalize(snap.data() as ScheduleData));
         });
       });
