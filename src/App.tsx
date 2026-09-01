@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSchedule } from './hooks/useSchedule';
+import type { Category, ScheduleItem } from './types';
 import { isItemDone, isItemScheduledOn } from './types';
 import { friendlyDate, todayDayIndex, todayKey } from './lib/date';
 import { CategorySection } from './components/CategorySection';
@@ -8,6 +9,13 @@ import { ProgressBar } from './components/ProgressBar';
 import { WeekView } from './components/WeekView';
 import { PinPrompt } from './components/PinPrompt';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
+import { UndoToast } from './components/UndoToast';
+
+const UNDO_MS = 6000;
+
+type PendingUndo =
+  | { kind: 'category'; category: Category; atIndex: number }
+  | { kind: 'item'; categoryId: string; item: ScheduleItem; atIndex: number };
 
 function App() {
   const s = useSchedule();
@@ -15,6 +23,49 @@ function App() {
   const [view, setView] = useState<'today' | 'week'>('today');
   const [pinPromptOpen, setPinPromptOpen] = useState(false);
   const [newPinDraft, setNewPinDraft] = useState('');
+  const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Deletes are immediate (same as everywhere else in the app — no
+  // confirmation dialog), but a delete is the one place an accidental tap
+  // is genuinely hard to recover from, so it gets a brief "Undo" toast
+  // instead. Undoing re-inserts the captured snapshot; it doesn't "cancel"
+  // anything already in flight.
+  function showUndo(pending: PendingUndo) {
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    setPendingUndo(pending);
+    undoTimeoutRef.current = setTimeout(() => setPendingUndo(null), UNDO_MS);
+  }
+
+  function handleDeleteCategory(categoryId: string) {
+    if (!s.data) return;
+    const atIndex = s.data.categories.findIndex((c) => c.id === categoryId);
+    const category = s.data.categories[atIndex];
+    if (!category) return;
+    s.deleteCategory(categoryId);
+    showUndo({ kind: 'category', category, atIndex });
+  }
+
+  function handleDeleteItem(categoryId: string, itemId: string) {
+    const category = s.data?.categories.find((c) => c.id === categoryId);
+    if (!category) return;
+    const atIndex = category.items.findIndex((it) => it.id === itemId);
+    const item = category.items[atIndex];
+    if (!item) return;
+    s.deleteItem(categoryId, itemId);
+    showUndo({ kind: 'item', categoryId, item, atIndex });
+  }
+
+  function handleUndo() {
+    if (!pendingUndo) return;
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    if (pendingUndo.kind === 'category') {
+      s.restoreCategory(pendingUndo.category, pendingUndo.atIndex);
+    } else {
+      s.restoreItem(pendingUndo.categoryId, pendingUndo.item, pendingUndo.atIndex);
+    }
+    setPendingUndo(null);
+  }
 
   function handleEditClick() {
     if (editMode) {
@@ -148,13 +199,13 @@ function App() {
                   toggleSubStep={s.toggleSubStep}
                   updateCategoryMeta={s.updateCategoryMeta}
                   updateCategoryName={s.updateCategoryName}
-                  deleteCategory={s.deleteCategory}
+                  deleteCategory={handleDeleteCategory}
                   addItem={s.addItem}
                   updateItemMeta={s.updateItemMeta}
                   updateItemTitle={s.updateItemTitle}
                   updateItemNotes={s.updateItemNotes}
                   updateItemTime={s.updateItemTime}
-                  deleteItem={s.deleteItem}
+                  deleteItem={handleDeleteItem}
                   addSubStep={s.addSubStep}
                   updateSubStepText={s.updateSubStepText}
                   deleteSubStep={s.deleteSubStep}
@@ -230,6 +281,12 @@ function App() {
           </div>
         )}
       </div>
+      {pendingUndo && (
+        <UndoToast
+          message={pendingUndo.kind === 'category' ? 'Category deleted' : 'Item deleted'}
+          onUndo={handleUndo}
+        />
+      )}
     </div>
   );
 }
