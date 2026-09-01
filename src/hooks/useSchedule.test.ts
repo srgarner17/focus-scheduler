@@ -562,4 +562,71 @@ describe('useSchedule', () => {
     });
     expect(result.current.data!.categories[0].items[0].subSteps.map((s) => s.id)).toEqual(afterUp);
   });
+
+  it('restoreCategory re-inserts a deleted category at its original index, fully intact', async () => {
+    const { result } = await mountSchedule();
+    const categoryToDelete = result.current.data!.categories[1];
+    const originalIds = result.current.data!.categories.map((c) => c.id);
+
+    act(() => {
+      result.current.deleteCategory(categoryToDelete.id);
+    });
+    expect(result.current.data!.categories.map((c) => c.id)).toEqual(
+      originalIds.filter((id) => id !== categoryToDelete.id),
+    );
+    await waitFor(() =>
+      expect(getServerDoc()?.categories.map((c) => c.id)).toEqual(
+        originalIds.filter((id) => id !== categoryToDelete.id),
+      ),
+    );
+
+    act(() => {
+      result.current.restoreCategory(categoryToDelete, 1);
+    });
+    expect(result.current.data!.categories.map((c) => c.id)).toEqual(originalIds);
+    // Restored with every one of its items intact, not just an empty shell.
+    expect(result.current.data!.categories[1].items).toEqual(categoryToDelete.items);
+    await waitFor(() => expect(getServerDoc()?.categories.map((c) => c.id)).toEqual(originalIds));
+  });
+
+  it('restoreItem re-inserts a deleted item at its original index within its category', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const itemToDelete = category.items[1];
+    const originalIds = category.items.map((it) => it.id);
+
+    act(() => {
+      result.current.deleteItem(category.id, itemToDelete.id);
+    });
+    expect(result.current.data!.categories[0].items.map((it) => it.id)).toEqual(
+      originalIds.filter((id) => id !== itemToDelete.id),
+    );
+
+    act(() => {
+      result.current.restoreItem(category.id, itemToDelete, 1);
+    });
+    expect(result.current.data!.categories[0].items.map((it) => it.id)).toEqual(originalIds);
+    await waitFor(() =>
+      expect(getServerDoc()?.categories[0].items.map((it) => it.id)).toEqual(originalIds),
+    );
+  });
+
+  it('restoreItem is a silent no-op if the category was also deleted in the meantime', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const item = category.items[0];
+
+    act(() => {
+      result.current.deleteItem(category.id, item.id);
+      result.current.deleteCategory(category.id);
+    });
+    expect(result.current.data!.categories.find((c) => c.id === category.id)).toBeUndefined();
+
+    // Should not throw, and should not resurrect the category just to hold
+    // the restored item.
+    act(() => {
+      result.current.restoreItem(category.id, item, 0);
+    });
+    expect(result.current.data!.categories.find((c) => c.id === category.id)).toBeUndefined();
+  });
 });

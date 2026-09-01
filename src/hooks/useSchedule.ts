@@ -312,6 +312,19 @@ export function useSchedule() {
     mutate((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== categoryId) }));
   }
 
+  // Re-inserts a previously-deleted category at (approximately) its original
+  // position, for the delete-category undo toast. `atIndex` is clamped by
+  // splice() itself if the array has since gotten shorter (e.g. another
+  // device deleted something in between) — it just lands at the end rather
+  // than throwing.
+  function restoreCategory(category: Category, atIndex: number) {
+    mutate((d) => {
+      const categories = [...d.categories];
+      categories.splice(atIndex, 0, category);
+      return { ...d, categories };
+    });
+  }
+
   function addItem(categoryId: string) {
     const newItem: ScheduleItem = {
       id: makeId(),
@@ -349,6 +362,19 @@ export function useSchedule() {
 
   function deleteItem(categoryId: string, itemId: string) {
     updateCategory(categoryId, (c) => ({ ...c, items: c.items.filter((it) => it.id !== itemId) }));
+  }
+
+  // Re-inserts a previously-deleted item at (approximately) its original
+  // position within its category, for the delete-item undo toast. If the
+  // category itself no longer exists (also deleted in the meantime), this
+  // is a silent no-op — same as updateCategory's existing behavior for an
+  // unknown categoryId.
+  function restoreItem(categoryId: string, item: ScheduleItem, atIndex: number) {
+    updateCategory(categoryId, (c) => {
+      const items = [...c.items];
+      items.splice(atIndex, 0, item);
+      return { ...c, items };
+    });
   }
 
   function addSubStep(categoryId: string, itemId: string, text: string) {
@@ -401,12 +427,14 @@ export function useSchedule() {
     updateCategoryMeta,
     updateCategoryName,
     deleteCategory,
+    restoreCategory,
     addItem,
     updateItemMeta,
     updateItemTitle,
     updateItemNotes,
     updateItemTime,
     deleteItem,
+    restoreItem,
     addSubStep,
     updateSubStepText,
     deleteSubStep,
