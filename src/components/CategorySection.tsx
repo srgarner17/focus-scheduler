@@ -77,9 +77,15 @@ export function CategorySection({
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center gap-3">
+      <div
+        className={`flex items-center gap-3 rounded-2xl transition-colors ${
+          editMode ? '' : `${color.solid} p-3 sm:p-4`
+        }`}
+      >
         <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg text-white ${color.chip}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${
+            editMode ? `text-white ${color.chip}` : `bg-white ${color.checkFg}`
+          }`}
         >
           {category.emoji}
         </span>
@@ -98,11 +104,19 @@ export function CategorySection({
               />
             </div>
           ) : (
-            <h2 className="text-lg font-bold">{category.name}</h2>
+            <h2 className="text-lg font-bold text-white">{category.name}</h2>
           )}
           <div className="mt-1 flex items-center gap-2">
-            <ProgressBar percent={percent} barClass={color.bar} />
-            <span className="shrink-0 text-xs font-medium text-black/50 dark:text-white/50">
+            <ProgressBar
+              percent={percent}
+              barClass={editMode ? color.bar : 'bg-white'}
+              trackClass={editMode ? undefined : 'bg-white/25'}
+            />
+            <span
+              className={`shrink-0 text-xs font-medium ${
+                editMode ? 'text-black/50 dark:text-white/50' : 'text-white/80'
+              }`}
+            >
               {doneCount}/{total}
             </span>
           </div>
@@ -112,7 +126,7 @@ export function CategorySection({
             type="button"
             aria-label={collapsed ? 'Expand section' : 'Collapse section'}
             onClick={() => setUserExpanded((v) => !v)}
-            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-black/40 hover:bg-black/5 dark:text-white/40 dark:hover:bg-white/10"
+            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
           >
             <span className={`inline-block transition-transform ${collapsed ? '' : 'rotate-180'}`}>⌄</span>
           </button>
