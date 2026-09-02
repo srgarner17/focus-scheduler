@@ -79,7 +79,7 @@ export function CategorySection({
     <section className="space-y-3">
       <div
         className={`flex items-center gap-3 rounded-2xl transition-colors ${
-          editMode ? '' : `${color.solid} p-3 sm:p-4`
+          editMode ? '' : `${color.deep} p-3 sm:p-4`
         }`}
       >
         <span

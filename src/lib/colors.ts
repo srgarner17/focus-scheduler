@@ -9,6 +9,7 @@ export interface ColorStyle {
   ring: string; // focus / expanded ring
   solid: string; // bold, view-mode item card background — a shade dark enough for white text/icons at AA contrast
   checkFg: string; // checkmark color on the white "done" circle, matches `solid`'s hue
+  deep: string; // view-mode category header background — one stop darker than `solid` so the header reads as a cap, not another item
 }
 
 export const colorStyles: Record<CategoryColor, ColorStyle> = {
@@ -21,6 +22,7 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     ring: 'ring-orange-400',
     solid: 'bg-orange-700',
     checkFg: 'text-orange-700',
+    deep: 'bg-orange-900',
   },
   green: {
     chip: 'bg-emerald-500',
@@ -31,6 +33,7 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     ring: 'ring-emerald-400',
     solid: 'bg-emerald-700',
     checkFg: 'text-emerald-700',
+    deep: 'bg-emerald-900',
   },
   blue: {
     chip: 'bg-sky-500',
@@ -41,6 +44,7 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     ring: 'ring-sky-400',
     solid: 'bg-sky-700',
     checkFg: 'text-sky-700',
+    deep: 'bg-sky-900',
   },
   purple: {
     chip: 'bg-violet-500',
@@ -51,6 +55,7 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     ring: 'ring-violet-400',
     solid: 'bg-violet-700',
     checkFg: 'text-violet-700',
+    deep: 'bg-violet-900',
   },
   pink: {
     chip: 'bg-pink-500',
@@ -61,6 +66,7 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     ring: 'ring-pink-400',
     solid: 'bg-pink-700',
     checkFg: 'text-pink-700',
+    deep: 'bg-pink-900',
   },
   teal: {
     chip: 'bg-teal-500',
@@ -71,6 +77,7 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     ring: 'ring-teal-400',
     solid: 'bg-teal-700',
     checkFg: 'text-teal-700',
+    deep: 'bg-teal-900',
   },
 };
 
