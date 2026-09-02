@@ -217,12 +217,14 @@ export function ItemCard({
                   type="button"
                   aria-label={s.done ? 'Mark step not done' : 'Mark step done'}
                   onClick={() => toggleSubStep(categoryId, item.id, s.id)}
-                  className={`shrink-0 flex items-center justify-center h-6 w-6 rounded-md border-2 text-sm active:scale-90 ${
-                    s.done
-                      ? `${color.chip} border-transparent text-white`
-                      : editMode
-                        ? 'border-black/20 dark:border-white/25 text-transparent'
-                        : 'border-white/50 text-transparent'
+                  className={`shrink-0 flex items-center justify-center h-6 w-6 rounded-full border-2 text-sm active:scale-90 ${
+                    editMode
+                      ? s.done
+                        ? `${color.chip} border-transparent text-white`
+                        : 'border-black/20 dark:border-white/25 text-transparent'
+                      : s.done
+                        ? `bg-white border-transparent ${color.checkFg}`
+                        : 'border-white/70 text-transparent hover:border-white'
                   }`}
                 >
                   {s.done ? '✓' : ''}
