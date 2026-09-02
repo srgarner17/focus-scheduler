@@ -169,7 +169,7 @@ export function CategorySection({
           <h2 className="text-lg font-bold text-white">{category.name}</h2>
           <div className="mt-1 flex items-center gap-2">
             <ProgressBar percent={percent} barClass="bg-white" trackClass="bg-white/25" />
-            <span className="shrink-0 text-xs font-medium text-white/80">
+            <span className="shrink-0 text-xs font-medium text-white">
               {doneCount}/{total}
             </span>
           </div>
@@ -187,12 +187,12 @@ export function CategorySection({
       </div>
 
       {collapsed ? (
-        <p className="px-4 py-3 text-sm text-white/70">All done — tap to review 🎉</p>
+        <p className="px-4 py-3 text-sm text-white">All done — tap to review 🎉</p>
       ) : (
         <div className="divide-y divide-white/10">
           {itemCards}
           {displayedItems.length === 0 && (
-            <p className="px-4 py-3 text-sm text-white/70 italic">
+            <p className="px-4 py-3 text-sm text-white italic">
               {category.items.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}
             </p>
           )}
