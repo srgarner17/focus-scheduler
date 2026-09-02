@@ -126,13 +126,13 @@ export function ItemCard({
           ) : (
             <div className="flex items-baseline gap-2">
               <span className="text-xl leading-none">{item.emoji}</span>
-              <span className={`font-semibold text-white ${done ? 'line-through opacity-60' : ''}`}>{item.title}</span>
-              {item.time && <span className="text-xs text-white/80">{item.time}</span>}
-              {isOneTime && <span className="text-xs text-white/70">{formatDateShort(item.date)}</span>}
+              <span className={`font-semibold text-white ${done ? 'line-through opacity-75' : ''}`}>{item.title}</span>
+              {item.time && <span className="text-xs text-white">{item.time}</span>}
+              {isOneTime && <span className="text-xs text-white">{formatDateShort(item.date)}</span>}
             </div>
           )}
           {!editMode && item.subSteps.length > 0 && (
-            <div className="mt-1 text-xs text-white/80">
+            <div className="mt-1 text-xs text-white">
               {item.subSteps.filter((s) => s.done).length}/{item.subSteps.length} steps
             </div>
           )}
@@ -204,7 +204,7 @@ export function ItemCard({
             />
           ) : (
             item.notes && (
-              <p className={`text-sm italic ${editMode ? 'text-black/60 dark:text-white/60' : 'text-white/85'}`}>
+              <p className={`text-sm italic ${editMode ? 'text-black/60 dark:text-white/60' : 'text-white'}`}>
                 {item.notes}
               </p>
             )
@@ -264,7 +264,7 @@ export function ItemCard({
                     </button>
                   </>
                 ) : (
-                  <span className={`text-sm text-white ${s.done ? 'line-through opacity-60' : ''}`}>{s.text}</span>
+                  <span className={`text-sm text-white ${s.done ? 'line-through opacity-75' : ''}`}>{s.text}</span>
                 )}
               </li>
             ))}
