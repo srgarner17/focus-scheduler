@@ -7,6 +7,8 @@ export interface ColorStyle {
   text: string;
   bar: string; // progress bar fill
   ring: string; // focus / expanded ring
+  solid: string; // bold, view-mode item card background — a shade dark enough for white text/icons at AA contrast
+  checkFg: string; // checkmark color on the white "done" circle, matches `solid`'s hue
 }
 
 export const colorStyles: Record<CategoryColor, ColorStyle> = {
@@ -17,6 +19,8 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     text: 'text-orange-700 dark:text-orange-300',
     bar: 'bg-orange-500',
     ring: 'ring-orange-400',
+    solid: 'bg-orange-700',
+    checkFg: 'text-orange-700',
   },
   green: {
     chip: 'bg-emerald-500',
@@ -25,6 +29,8 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     text: 'text-emerald-700 dark:text-emerald-300',
     bar: 'bg-emerald-500',
     ring: 'ring-emerald-400',
+    solid: 'bg-emerald-700',
+    checkFg: 'text-emerald-700',
   },
   blue: {
     chip: 'bg-sky-500',
@@ -33,6 +39,8 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     text: 'text-sky-700 dark:text-sky-300',
     bar: 'bg-sky-500',
     ring: 'ring-sky-400',
+    solid: 'bg-sky-700',
+    checkFg: 'text-sky-700',
   },
   purple: {
     chip: 'bg-violet-500',
@@ -41,6 +49,8 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     text: 'text-violet-700 dark:text-violet-300',
     bar: 'bg-violet-500',
     ring: 'ring-violet-400',
+    solid: 'bg-violet-700',
+    checkFg: 'text-violet-700',
   },
   pink: {
     chip: 'bg-pink-500',
@@ -49,6 +59,8 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     text: 'text-pink-700 dark:text-pink-300',
     bar: 'bg-pink-500',
     ring: 'ring-pink-400',
+    solid: 'bg-pink-700',
+    checkFg: 'text-pink-700',
   },
   teal: {
     chip: 'bg-teal-500',
@@ -57,6 +69,8 @@ export const colorStyles: Record<CategoryColor, ColorStyle> = {
     text: 'text-teal-700 dark:text-teal-300',
     bar: 'bg-teal-500',
     ring: 'ring-teal-400',
+    solid: 'bg-teal-700',
+    checkFg: 'text-teal-700',
   },
 };
 

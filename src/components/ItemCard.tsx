@@ -60,7 +60,11 @@ export function ItemCard({
   return (
     <div
       className={`rounded-2xl border transition-colors ${
-        done ? `${color.soft} ${color.border}` : 'bg-white dark:bg-neutral-900 border-black/10 dark:border-white/10'
+        editMode
+          ? done
+            ? `${color.soft} ${color.border}`
+            : 'bg-white dark:bg-neutral-900 border-black/10 dark:border-white/10'
+          : `${color.solid} border-transparent`
       } ${editMode && !activeToday ? 'opacity-50' : ''}`}
     >
       <div className="flex items-center gap-3 p-3 sm:p-4">
@@ -69,9 +73,13 @@ export function ItemCard({
           aria-label={done ? 'Mark not done' : 'Mark done'}
           onClick={() => toggleItem(categoryId, item.id)}
           className={`shrink-0 flex items-center justify-center h-11 w-11 rounded-full border-2 text-xl transition-all active:scale-90 ${
-            done
-              ? `${color.chip} border-transparent text-white`
-              : 'border-black/20 dark:border-white/25 text-transparent hover:border-black/40'
+            editMode
+              ? done
+                ? `${color.chip} border-transparent text-white`
+                : 'border-black/20 dark:border-white/25 text-transparent hover:border-black/40'
+              : done
+                ? `bg-white border-transparent ${color.checkFg}`
+                : 'border-white/70 text-transparent hover:border-white'
           }`}
         >
           {done ? '✓' : ''}
@@ -118,15 +126,13 @@ export function ItemCard({
           ) : (
             <div className="flex items-baseline gap-2">
               <span className="text-xl leading-none">{item.emoji}</span>
-              <span className={`font-semibold ${done ? 'line-through opacity-60' : ''}`}>{item.title}</span>
-              {item.time && <span className="text-xs text-black/50 dark:text-white/50">{item.time}</span>}
-              {isOneTime && (
-                <span className="text-xs text-black/40 dark:text-white/40">{formatDateShort(item.date)}</span>
-              )}
+              <span className={`font-semibold text-white ${done ? 'line-through opacity-60' : ''}`}>{item.title}</span>
+              {item.time && <span className="text-xs text-white/80">{item.time}</span>}
+              {isOneTime && <span className="text-xs text-white/70">{formatDateShort(item.date)}</span>}
             </div>
           )}
           {!editMode && item.subSteps.length > 0 && (
-            <div className="mt-1 text-xs text-black/50 dark:text-white/50">
+            <div className="mt-1 text-xs text-white/80">
               {item.subSteps.filter((s) => s.done).length}/{item.subSteps.length} steps
             </div>
           )}
@@ -137,7 +143,11 @@ export function ItemCard({
             type="button"
             aria-label={expanded ? 'Collapse details' : 'Expand details'}
             onClick={() => setExpanded((e) => !e)}
-            className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full text-black/40 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/10"
+            className={`shrink-0 h-9 w-9 flex items-center justify-center rounded-full ${
+              editMode
+                ? 'text-black/40 dark:text-white/40 hover:bg-black/5 dark:hover:bg-white/10'
+                : 'text-white/80 hover:bg-white/10'
+            }`}
           >
             <span className={`inline-block transition-transform ${expanded ? 'rotate-180' : ''}`}>⌄</span>
           </button>
@@ -193,7 +203,11 @@ export function ItemCard({
               rows={2}
             />
           ) : (
-            item.notes && <p className="text-sm text-black/60 dark:text-white/60 italic">{item.notes}</p>
+            item.notes && (
+              <p className={`text-sm italic ${editMode ? 'text-black/60 dark:text-white/60' : 'text-white/85'}`}>
+                {item.notes}
+              </p>
+            )
           )}
 
           <ul className="space-y-1.5">
@@ -206,7 +220,9 @@ export function ItemCard({
                   className={`shrink-0 flex items-center justify-center h-6 w-6 rounded-md border-2 text-sm active:scale-90 ${
                     s.done
                       ? `${color.chip} border-transparent text-white`
-                      : 'border-black/20 dark:border-white/25 text-transparent'
+                      : editMode
+                        ? 'border-black/20 dark:border-white/25 text-transparent'
+                        : 'border-white/50 text-transparent'
                   }`}
                 >
                   {s.done ? '✓' : ''}
@@ -246,7 +262,7 @@ export function ItemCard({
                     </button>
                   </>
                 ) : (
-                  <span className={`text-sm ${s.done ? 'line-through opacity-60' : ''}`}>{s.text}</span>
+                  <span className={`text-sm text-white ${s.done ? 'line-through opacity-60' : ''}`}>{s.text}</span>
                 )}
               </li>
             ))}
