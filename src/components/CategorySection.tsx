@@ -75,22 +75,37 @@ export function CategorySection({
   }, [allDone]);
   const collapsed = !editMode && allDone && !userExpanded;
 
-  return (
-    <section className="space-y-3">
-      <div
-        className={`flex items-center gap-3 rounded-2xl transition-colors ${
-          editMode ? '' : `${color.deep} p-3 sm:p-4`
-        }`}
-      >
-        <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${
-            editMode ? `text-white ${color.chip}` : `bg-white ${color.checkFg}`
-          }`}
-        >
-          {category.emoji}
-        </span>
-        <div className="flex-1 min-w-0">
-          {editMode ? (
+  const itemCards = displayedItems.map((item) => (
+    <ItemCard
+      key={item.id}
+      categoryId={category.id}
+      item={item}
+      color={color}
+      editMode={editMode}
+      toggleItem={toggleItem}
+      toggleSubStep={toggleSubStep}
+      updateItemMeta={updateItemMeta}
+      updateItemTitle={updateItemTitle}
+      updateItemNotes={updateItemNotes}
+      updateItemTime={updateItemTime}
+      deleteItem={deleteItem}
+      addSubStep={addSubStep}
+      updateSubStepText={updateSubStepText}
+      deleteSubStep={deleteSubStep}
+      reorderSubStep={reorderSubStep}
+    />
+  ));
+
+  if (editMode) {
+    return (
+      <section className="space-y-3">
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg text-white ${color.chip}`}
+          >
+            {category.emoji}
+          </span>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <input
                 value={category.emoji}
@@ -103,69 +118,24 @@ export function CategorySection({
                 className="flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-bold text-lg"
               />
             </div>
-          ) : (
-            <h2 className="text-lg font-bold text-white">{category.name}</h2>
-          )}
-          <div className="mt-1 flex items-center gap-2">
-            <ProgressBar
-              percent={percent}
-              barClass={editMode ? color.bar : 'bg-white'}
-              trackClass={editMode ? undefined : 'bg-white/25'}
-            />
-            <span
-              className={`shrink-0 text-xs font-medium ${
-                editMode ? 'text-black/50 dark:text-white/50' : 'text-white/80'
-              }`}
-            >
-              {doneCount}/{total}
-            </span>
+            <div className="mt-1 flex items-center gap-2">
+              <ProgressBar percent={percent} barClass={color.bar} />
+              <span className="shrink-0 text-xs font-medium text-black/50 dark:text-white/50">
+                {doneCount}/{total}
+              </span>
+            </div>
           </div>
         </div>
-        {allDone && !editMode && (
-          <button
-            type="button"
-            aria-label={collapsed ? 'Expand section' : 'Collapse section'}
-            onClick={() => setUserExpanded((v) => !v)}
-            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
-          >
-            <span className={`inline-block transition-transform ${collapsed ? '' : 'rotate-180'}`}>⌄</span>
-          </button>
-        )}
-      </div>
 
-      {collapsed ? (
-        <p className="px-1 text-sm text-black/40 dark:text-white/40">All done — tap to review 🎉</p>
-      ) : (
         <div className="space-y-2">
-          {displayedItems.map((item) => (
-            <ItemCard
-              key={item.id}
-              categoryId={category.id}
-              item={item}
-              color={color}
-              editMode={editMode}
-              toggleItem={toggleItem}
-              toggleSubStep={toggleSubStep}
-              updateItemMeta={updateItemMeta}
-              updateItemTitle={updateItemTitle}
-              updateItemNotes={updateItemNotes}
-              updateItemTime={updateItemTime}
-              deleteItem={deleteItem}
-              addSubStep={addSubStep}
-              updateSubStepText={updateSubStepText}
-              deleteSubStep={deleteSubStep}
-              reorderSubStep={reorderSubStep}
-            />
-          ))}
-          {displayedItems.length === 0 && !editMode && (
+          {itemCards}
+          {displayedItems.length === 0 && (
             <p className="text-sm text-black/40 dark:text-white/40 italic px-1">
               {category.items.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}
             </p>
           )}
         </div>
-      )}
 
-      {editMode && (
         <div className="flex items-center gap-3 px-1">
           <button
             type="button"
@@ -181,6 +151,51 @@ export function CategorySection({
           >
             Delete category
           </button>
+        </div>
+      </section>
+    );
+  }
+
+  // Non-edit ("today") view: header and items are one continuous solid-color
+  // card, not two separately-rounded blocks stacked with a gap — the header
+  // caps it in a deeper shade of the same hue, items are dividing rows below.
+  return (
+    <section className={`${color.solid} rounded-2xl overflow-hidden`}>
+      <div className={`${color.deep} flex items-center gap-3 p-3 sm:p-4`}>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg bg-white ${color.checkFg}`}>
+          {category.emoji}
+        </span>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-white">{category.name}</h2>
+          <div className="mt-1 flex items-center gap-2">
+            <ProgressBar percent={percent} barClass="bg-white" trackClass="bg-white/25" />
+            <span className="shrink-0 text-xs font-medium text-white/80">
+              {doneCount}/{total}
+            </span>
+          </div>
+        </div>
+        {allDone && (
+          <button
+            type="button"
+            aria-label={collapsed ? 'Expand section' : 'Collapse section'}
+            onClick={() => setUserExpanded((v) => !v)}
+            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
+          >
+            <span className={`inline-block transition-transform ${collapsed ? '' : 'rotate-180'}`}>⌄</span>
+          </button>
+        )}
+      </div>
+
+      {collapsed ? (
+        <p className="px-4 py-3 text-sm text-white/70">All done — tap to review 🎉</p>
+      ) : (
+        <div className="divide-y divide-white/10">
+          {itemCards}
+          {displayedItems.length === 0 && (
+            <p className="px-4 py-3 text-sm text-white/70 italic">
+              {category.items.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}
+            </p>
+          )}
         </div>
       )}
     </section>

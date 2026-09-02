@@ -59,12 +59,12 @@ export function ItemCard({
 
   return (
     <div
-      className={`rounded-2xl border transition-colors ${
+      className={`transition-colors ${
         editMode
-          ? done
-            ? `${color.soft} ${color.border}`
-            : 'bg-white dark:bg-neutral-900 border-black/10 dark:border-white/10'
-          : `${color.solid} border-transparent`
+          ? `rounded-2xl border ${
+              done ? `${color.soft} ${color.border}` : 'bg-white dark:bg-neutral-900 border-black/10 dark:border-white/10'
+            }`
+          : ''
       } ${editMode && !activeToday ? 'opacity-50' : ''}`}
     >
       <div className="flex items-center gap-3 p-3 sm:p-4">
