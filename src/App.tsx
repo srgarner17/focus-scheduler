@@ -10,6 +10,8 @@ import { WeekView } from './components/WeekView';
 import { PinPrompt } from './components/PinPrompt';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { UndoToast } from './components/UndoToast';
+import { RevertButton } from './components/RevertButton';
+import { useEditRevert } from './hooks/useEditRevert';
 
 const UNDO_MS = 6000;
 
@@ -25,6 +27,7 @@ function App() {
   const [newPinDraft, setNewPinDraft] = useState('');
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revert = useEditRevert(editMode);
 
   // Deletes are immediate (same as everywhere else in the app — no
   // confirmation dialog), but a delete is the one place an accidental tap
@@ -116,12 +119,25 @@ function App() {
             <div className="min-w-0 flex-1">
               <p className="text-sm text-black/50 dark:text-white/50">{friendlyDate()}</p>
               {editMode ? (
-                <input
-                  value={data.childName}
-                  onChange={(e) => s.setChildName(e.target.value)}
-                  placeholder="His name"
-                  className="mt-1 w-full min-w-0 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-2xl font-bold"
-                />
+                <div className="mt-1 flex items-center gap-1">
+                  <input
+                    value={data.childName}
+                    onChange={(e) => {
+                      revert.capture('childName', data.childName);
+                      s.setChildName(e.target.value);
+                    }}
+                    placeholder="His name"
+                    className="w-full min-w-0 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-2xl font-bold"
+                  />
+                  {revert.isDirty('childName', data.childName) && (
+                    <RevertButton
+                      onRevert={() => {
+                        const original = revert.revert('childName');
+                        if (original !== undefined) s.setChildName(original);
+                      }}
+                    />
+                  )}
+                </div>
               ) : (
                 <h1 className="text-2xl font-bold">
                   {data.childName ? `${data.childName}'s Focus Plan` : "Today's Focus Plan"}
@@ -195,6 +211,7 @@ function App() {
                   key={category.id}
                   category={category}
                   editMode={editMode}
+                  revert={revert}
                   toggleItem={s.toggleItem}
                   toggleSubStep={s.toggleSubStep}
                   updateCategoryMeta={s.updateCategoryMeta}

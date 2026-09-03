@@ -38,8 +38,11 @@ function makeCategory(items: ScheduleItem[]): Category {
 
 function noop() {}
 
+const noopRevert = { capture: noop, isDirty: () => false, revert: () => undefined };
+
 const baseProps = {
   editMode: false,
+  revert: noopRevert,
   toggleItem: noop,
   toggleSubStep: noop,
   updateCategoryMeta: noop,

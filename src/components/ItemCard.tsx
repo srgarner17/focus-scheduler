@@ -2,14 +2,17 @@ import { useState } from 'react';
 import type { ScheduleItem } from '../types';
 import { ALL_DAYS, isItemDone, isItemScheduledOn } from '../types';
 import type { ColorStyle } from '../lib/colors';
+import type { EditRevertControls } from '../hooks/useEditRevert';
 import { formatDateShort, todayDayIndex, todayKey } from '../lib/date';
 import { DayPicker } from './DayPicker';
+import { RevertButton } from './RevertButton';
 
 interface Props {
   categoryId: string;
   item: ScheduleItem;
   color: ColorStyle;
   editMode: boolean;
+  revert: EditRevertControls;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
   updateItemMeta: (categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) => void;
@@ -28,6 +31,7 @@ export function ItemCard({
   item,
   color,
   editMode,
+  revert,
   toggleItem,
   toggleSubStep,
   updateItemMeta,
@@ -48,6 +52,9 @@ export function ItemCard({
   const activeToday = isItemScheduledOn(item, todayKey(), todayDayIndex());
   const isOneTime = Boolean(item.date);
   const isEveryDay = item.days.length === ALL_DAYS.length;
+  const titleKey = `item:${item.id}:title`;
+  const timeKey = `item:${item.id}:time`;
+  const notesKey = `item:${item.id}:notes`;
 
   function submitNewSubStep() {
     const text = newSubStep.trim();
@@ -103,18 +110,40 @@ export function ItemCard({
               />
               <input
                 value={item.title}
-                onChange={(e) => updateItemTitle(categoryId, item.id, e.target.value)}
+                onChange={(e) => {
+                  revert.capture(titleKey, item.title);
+                  updateItemTitle(categoryId, item.id, e.target.value);
+                }}
                 onClick={(e) => e.stopPropagation()}
                 className="min-w-[8rem] flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-semibold"
                 placeholder="Item title"
               />
+              {revert.isDirty(titleKey, item.title) && (
+                <RevertButton
+                  onRevert={() => {
+                    const original = revert.revert(titleKey);
+                    if (original !== undefined) updateItemTitle(categoryId, item.id, original);
+                  }}
+                />
+              )}
               <input
                 value={item.time}
-                onChange={(e) => updateItemTime(categoryId, item.id, e.target.value)}
+                onChange={(e) => {
+                  revert.capture(timeKey, item.time);
+                  updateItemTime(categoryId, item.id, e.target.value);
+                }}
                 onClick={(e) => e.stopPropagation()}
                 className="w-24 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
                 placeholder="Time"
               />
+              {revert.isDirty(timeKey, item.time) && (
+                <RevertButton
+                  onRevert={() => {
+                    const original = revert.revert(timeKey);
+                    if (original !== undefined) updateItemTime(categoryId, item.id, original);
+                  }}
+                />
+              )}
               {isOneTime ? (
                 <span className="text-xs text-black/40 dark:text-white/40">
                   one-time · {formatDateShort(item.date)}
@@ -195,13 +224,26 @@ export function ItemCard({
             </div>
           )}
           {editMode ? (
-            <textarea
-              value={item.notes}
-              onChange={(e) => updateItemNotes(categoryId, item.id, e.target.value)}
-              placeholder="Tip or instructions to help him get it right..."
-              className="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1.5 text-sm"
-              rows={2}
-            />
+            <div className="flex items-start gap-1">
+              <textarea
+                value={item.notes}
+                onChange={(e) => {
+                  revert.capture(notesKey, item.notes);
+                  updateItemNotes(categoryId, item.id, e.target.value);
+                }}
+                placeholder="Tip or instructions to help him get it right..."
+                className="w-full min-w-0 flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1.5 text-sm"
+                rows={2}
+              />
+              {revert.isDirty(notesKey, item.notes) && (
+                <RevertButton
+                  onRevert={() => {
+                    const original = revert.revert(notesKey);
+                    if (original !== undefined) updateItemNotes(categoryId, item.id, original);
+                  }}
+                />
+              )}
+            </div>
           ) : (
             item.notes && (
               <p className={`text-sm italic ${editMode ? 'text-black/60 dark:text-white/60' : 'text-white'}`}>
@@ -233,9 +275,20 @@ export function ItemCard({
                   <>
                     <input
                       value={s.text}
-                      onChange={(e) => updateSubStepText(categoryId, item.id, s.id, e.target.value)}
+                      onChange={(e) => {
+                        revert.capture(`item:${item.id}:substep:${s.id}`, s.text);
+                        updateSubStepText(categoryId, item.id, s.id, e.target.value);
+                      }}
                       className="min-w-0 flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
                     />
+                    {revert.isDirty(`item:${item.id}:substep:${s.id}`, s.text) && (
+                      <RevertButton
+                        onRevert={() => {
+                          const original = revert.revert(`item:${item.id}:substep:${s.id}`);
+                          if (original !== undefined) updateSubStepText(categoryId, item.id, s.id, original);
+                        }}
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => reorderSubStep(categoryId, item.id, s.id, 'up')}
