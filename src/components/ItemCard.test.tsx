@@ -23,6 +23,8 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
 
 function noop() {}
 
+const noopRevert = { capture: noop, isDirty: () => false, revert: () => undefined };
+
 function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknown>> = {}) {
   const updateItemMeta = vi.fn();
   const updateItemTitle = vi.fn();
@@ -36,6 +38,7 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
       item={item}
       color={colorStyles.blue}
       editMode
+      revert={noopRevert}
       toggleItem={noop}
       toggleSubStep={noop}
       updateItemMeta={updateItemMeta}

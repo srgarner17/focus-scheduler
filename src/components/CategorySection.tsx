@@ -3,12 +3,15 @@ import type { Category, ScheduleItem } from '../types';
 import { isItemDone, isItemScheduledOn, isOneTimeInPast } from '../types';
 import { colorStyles } from '../lib/colors';
 import { todayDayIndex, todayKey } from '../lib/date';
+import type { EditRevertControls } from '../hooks/useEditRevert';
 import { ProgressBar } from './ProgressBar';
 import { ItemCard } from './ItemCard';
+import { RevertButton } from './RevertButton';
 
 interface Props {
   category: Category;
   editMode: boolean;
+  revert: EditRevertControls;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
   updateCategoryMeta: (categoryId: string, patch: Partial<Pick<Category, 'name' | 'emoji'>>) => void;
@@ -33,6 +36,7 @@ interface Props {
 export function CategorySection({
   category,
   editMode,
+  revert,
   toggleItem,
   toggleSubStep,
   updateCategoryMeta,
@@ -75,6 +79,8 @@ export function CategorySection({
   }, [allDone]);
   const collapsed = !editMode && allDone && !userExpanded;
 
+  const categoryNameKey = `category:${category.id}:name`;
+
   const itemCards = displayedItems.map((item) => (
     <ItemCard
       key={item.id}
@@ -82,6 +88,7 @@ export function CategorySection({
       item={item}
       color={color}
       editMode={editMode}
+      revert={revert}
       toggleItem={toggleItem}
       toggleSubStep={toggleSubStep}
       updateItemMeta={updateItemMeta}
@@ -114,9 +121,20 @@ export function CategorySection({
               />
               <input
                 value={category.name}
-                onChange={(e) => updateCategoryName(category.id, e.target.value)}
-                className="flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-bold text-lg"
+                onChange={(e) => {
+                  revert.capture(categoryNameKey, category.name);
+                  updateCategoryName(category.id, e.target.value);
+                }}
+                className="min-w-0 flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-bold text-lg"
               />
+              {revert.isDirty(categoryNameKey, category.name) && (
+                <RevertButton
+                  onRevert={() => {
+                    const original = revert.revert(categoryNameKey);
+                    if (original !== undefined) updateCategoryName(category.id, original);
+                  }}
+                />
+              )}
             </div>
             <div className="mt-1 flex items-center gap-2">
               <ProgressBar percent={percent} barClass={color.bar} />
