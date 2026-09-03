@@ -75,7 +75,7 @@ export function WeekView({ categories, todayIndex }: Props) {
             <section key={c.id} className="space-y-2">
               <div className="flex items-center gap-2">
                 <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base text-white ${color.chip}`}
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-base text-white ${color.chip}`}
                 >
                   {c.emoji}
                 </span>
@@ -83,19 +83,12 @@ export function WeekView({ categories, todayIndex }: Props) {
               </div>
               <ul className="space-y-1.5">
                 {c.items.map((it) => (
-                  <li
-                    key={it.id}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${color.border} ${color.soft}`}
-                  >
+                  <li key={it.id} className={`flex items-center gap-2 rounded-xl px-3 py-2 ${color.solid}`}>
                     <span className="text-lg leading-none">{it.emoji}</span>
-                    <span className="flex-1 font-medium">{it.title}</span>
-                    {it.time && <span className="text-xs text-black/50 dark:text-white/50">{it.time}</span>}
-                    {it.date && (
-                      <span className="text-xs text-black/40 dark:text-white/40">{formatDateShort(it.date)}</span>
-                    )}
-                    {it.subSteps.length > 0 && (
-                      <span className="text-xs text-black/40 dark:text-white/40">{it.subSteps.length} steps</span>
-                    )}
+                    <span className="flex-1 font-medium text-white">{it.title}</span>
+                    {it.time && <span className="text-xs text-white">{it.time}</span>}
+                    {it.date && <span className="text-xs text-white">{formatDateShort(it.date)}</span>}
+                    {it.subSteps.length > 0 && <span className="text-xs text-white">{it.subSteps.length} steps</span>}
                   </li>
                 ))}
               </ul>
