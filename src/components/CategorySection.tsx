@@ -36,7 +36,6 @@ interface Props {
   ) => void;
   updateItemTitle: (categoryId: string, itemId: string, title: string) => void;
   updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
-  updateItemTime: (categoryId: string, itemId: string, time: string) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
   reorderItems: (categoryId: string, orderedIds: string[]) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
@@ -58,7 +57,6 @@ export function CategorySection({
   updateItemMeta,
   updateItemTitle,
   updateItemNotes,
-  updateItemTime,
   deleteItem,
   reorderItems,
   addSubStep,
@@ -124,7 +122,6 @@ export function CategorySection({
     updateItemMeta,
     updateItemTitle,
     updateItemNotes,
-    updateItemTime,
     deleteItem,
     addSubStep,
     updateSubStepText,

@@ -6,7 +6,6 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     id: 'item-1',
     title: 'Test item',
     emoji: '✅',
-    time: '',
     notes: '',
     subSteps: [],
     done: false,

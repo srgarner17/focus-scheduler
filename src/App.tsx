@@ -221,7 +221,6 @@ function App() {
                   updateItemMeta={s.updateItemMeta}
                   updateItemTitle={s.updateItemTitle}
                   updateItemNotes={s.updateItemNotes}
-                  updateItemTime={s.updateItemTime}
                   deleteItem={handleDeleteItem}
                   reorderItems={s.reorderItems}
                   addSubStep={s.addSubStep}

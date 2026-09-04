@@ -25,7 +25,6 @@ interface Props {
   updateItemMeta: (categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) => void;
   updateItemTitle: (categoryId: string, itemId: string, title: string) => void;
   updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
-  updateItemTime: (categoryId: string, itemId: string, time: string) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
   updateSubStepText: (categoryId: string, itemId: string, subStepId: string, text: string) => void;
@@ -45,7 +44,6 @@ export function ItemCard({
   updateItemMeta,
   updateItemTitle,
   updateItemNotes,
-  updateItemTime,
   deleteItem,
   addSubStep,
   updateSubStepText,
@@ -61,7 +59,6 @@ export function ItemCard({
   const isOneTime = Boolean(item.date);
   const isEveryDay = item.days.length === ALL_DAYS.length;
   const titleKey = `item:${item.id}:title`;
-  const timeKey = `item:${item.id}:time`;
   const notesKey = `item:${item.id}:notes`;
 
   function submitNewSubStep() {
@@ -134,24 +131,6 @@ export function ItemCard({
                   }}
                 />
               )}
-              <input
-                value={item.time}
-                onChange={(e) => {
-                  revert.capture(timeKey, item.time);
-                  updateItemTime(categoryId, item.id, e.target.value);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-24 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-sm"
-                placeholder="Time"
-              />
-              {revert.isDirty(timeKey, item.time) && (
-                <RevertButton
-                  onRevert={() => {
-                    const original = revert.revert(timeKey);
-                    if (original !== undefined) updateItemTime(categoryId, item.id, original);
-                  }}
-                />
-              )}
               {isOneTime ? (
                 <span className="text-xs text-black/40 dark:text-white/40">
                   one-time · {formatDateShort(item.date)}
@@ -164,7 +143,6 @@ export function ItemCard({
             <div className="flex items-baseline gap-2">
               <span className="text-xl leading-none">{item.emoji}</span>
               <span className={`font-semibold text-white ${done ? 'line-through opacity-75' : ''}`}>{item.title}</span>
-              {item.time && <span className="text-xs text-white">{item.time}</span>}
               {isOneTime && <span className="text-xs text-white">{formatDateShort(item.date)}</span>}
             </div>
           )}

@@ -8,7 +8,6 @@ export interface ScheduleItem {
   id: string;
   title: string;
   emoji: string;
-  time: string; // free-text label, e.g. "7:00 AM" — optional, may be ""
   notes: string; // free-text tip shown to help him get it right
   subSteps: SubStep[];
   done: boolean; // used directly only when subSteps is empty
