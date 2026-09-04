@@ -330,7 +330,6 @@ export function useSchedule() {
       id: makeId(),
       title: 'New Item',
       emoji: '✅',
-      time: '',
       notes: '',
       subSteps: [],
       done: false,
@@ -354,10 +353,6 @@ export function useSchedule() {
 
   function updateItemNotes(categoryId: string, itemId: string, notes: string) {
     updateItemDebounced(`item:${itemId}:notes`, categoryId, itemId, (it) => ({ ...it, notes }));
-  }
-
-  function updateItemTime(categoryId: string, itemId: string, time: string) {
-    updateItemDebounced(`item:${itemId}:time`, categoryId, itemId, (it) => ({ ...it, time }));
   }
 
   function deleteItem(categoryId: string, itemId: string) {
@@ -449,7 +444,6 @@ export function useSchedule() {
     updateItemMeta,
     updateItemTitle,
     updateItemNotes,
-    updateItemTime,
     deleteItem,
     restoreItem,
     reorderItems,

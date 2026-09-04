@@ -11,7 +11,6 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     id: 'item-1',
     title: 'Pack Soccer Bag',
     emoji: '🎽',
-    time: '',
     notes: '',
     subSteps: [],
     done: false,
@@ -29,7 +28,6 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
   const updateItemMeta = vi.fn();
   const updateItemTitle = vi.fn();
   const updateItemNotes = vi.fn();
-  const updateItemTime = vi.fn();
   const updateSubStepText = vi.fn();
   const reorderSubStep = vi.fn();
   const utils = render(
@@ -44,7 +42,6 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
       updateItemMeta={updateItemMeta}
       updateItemTitle={updateItemTitle}
       updateItemNotes={updateItemNotes}
-      updateItemTime={updateItemTime}
       deleteItem={noop}
       addSubStep={noop}
       updateSubStepText={updateSubStepText}
@@ -56,7 +53,7 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
   // The Repeats-weekly/One-time toggle and notes field only show once
   // expanded.
   fireEvent.click(screen.getByRole('button', { name: /expand details/i }));
-  return { ...utils, updateItemMeta, updateItemTitle, updateItemNotes, updateItemTime, updateSubStepText, reorderSubStep };
+  return { ...utils, updateItemMeta, updateItemTitle, updateItemNotes, updateSubStepText, reorderSubStep };
 }
 
 describe('ItemCard recurring/one-time toggle', () => {

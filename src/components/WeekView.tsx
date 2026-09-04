@@ -86,7 +86,6 @@ export function WeekView({ categories, todayIndex }: Props) {
                   <li key={it.id} className={`flex items-center gap-2 rounded-xl px-3 py-2 ${color.solid}`}>
                     <span className="text-lg leading-none">{it.emoji}</span>
                     <span className="flex-1 font-medium text-white">{it.title}</span>
-                    {it.time && <span className="text-xs text-white">{it.time}</span>}
                     {it.date && <span className="text-xs text-white">{formatDateShort(it.date)}</span>}
                     {it.subSteps.length > 0 && <span className="text-xs text-white">{it.subSteps.length} steps</span>}
                   </li>
