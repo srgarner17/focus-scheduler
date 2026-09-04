@@ -1,4 +1,14 @@
 import { useEffect, useState } from 'react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Category, ScheduleItem } from '../types';
 import { isItemDone, isItemScheduledOn, isOneTimeInPast } from '../types';
 import { colorStyles } from '../lib/colors';
@@ -6,6 +16,7 @@ import { todayDayIndex, todayKey } from '../lib/date';
 import type { EditRevertControls } from '../hooks/useEditRevert';
 import { ProgressBar } from './ProgressBar';
 import { ItemCard } from './ItemCard';
+import { SortableItemCard } from './SortableItemCard';
 import { RevertButton } from './RevertButton';
 
 interface Props {
@@ -27,7 +38,7 @@ interface Props {
   updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
   updateItemTime: (categoryId: string, itemId: string, time: string) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
-  reorderItem: (categoryId: string, itemIdA: string, itemIdB: string) => void;
+  reorderItems: (categoryId: string, orderedIds: string[]) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
   updateSubStepText: (categoryId: string, itemId: string, subStepId: string, text: string) => void;
   deleteSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
@@ -49,7 +60,7 @@ export function CategorySection({
   updateItemNotes,
   updateItemTime,
   deleteItem,
-  reorderItem,
+  reorderItems,
   addSubStep,
   updateSubStepText,
   deleteSubStep,
@@ -83,40 +94,43 @@ export function CategorySection({
 
   const categoryNameKey = `category:${category.id}:name`;
 
-  // Moving an item swaps it with whichever neighbor is visually adjacent in
-  // this (possibly filtered) displayed list, not necessarily adjacent in the
-  // category's raw item array — see reorderItem's comment in useSchedule.ts.
-  const itemCards = displayedItems.map((item, index) => (
-    <ItemCard
-      key={item.id}
-      categoryId={category.id}
-      item={item}
-      color={color}
-      editMode={editMode}
-      revert={revert}
-      canMoveUp={index > 0}
-      canMoveDown={index < displayedItems.length - 1}
-      onMoveUp={() => {
-        const neighbor = displayedItems[index - 1];
-        if (neighbor) reorderItem(category.id, item.id, neighbor.id);
-      }}
-      onMoveDown={() => {
-        const neighbor = displayedItems[index + 1];
-        if (neighbor) reorderItem(category.id, item.id, neighbor.id);
-      }}
-      toggleItem={toggleItem}
-      toggleSubStep={toggleSubStep}
-      updateItemMeta={updateItemMeta}
-      updateItemTitle={updateItemTitle}
-      updateItemNotes={updateItemNotes}
-      updateItemTime={updateItemTime}
-      deleteItem={deleteItem}
-      addSubStep={addSubStep}
-      updateSubStepText={updateSubStepText}
-      deleteSubStep={deleteSubStep}
-      reorderSubStep={reorderSubStep}
-    />
-  ));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // Drag-and-drop only ever reorders what's in `displayedItems` — edit mode
+  // hides expired one-time items, so the ids handed to reorderItems are
+  // whatever was actually draggable, not necessarily the category's full
+  // raw item list. See reorderItems' comment in useSchedule.ts for how the
+  // rest of the list is preserved.
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = displayedItems.findIndex((it) => it.id === active.id);
+    const newIndex = displayedItems.findIndex((it) => it.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    reorderItems(category.id, arrayMove(displayedItems, oldIndex, newIndex).map((it) => it.id));
+  }
+
+  const itemProps = (item: ScheduleItem) => ({
+    categoryId: category.id,
+    item,
+    color,
+    editMode,
+    revert,
+    toggleItem,
+    toggleSubStep,
+    updateItemMeta,
+    updateItemTitle,
+    updateItemNotes,
+    updateItemTime,
+    deleteItem,
+    addSubStep,
+    updateSubStepText,
+    deleteSubStep,
+    reorderSubStep,
+  });
 
   if (editMode) {
     return (
@@ -161,7 +175,13 @@ export function CategorySection({
         </div>
 
         <div className="space-y-2">
-          {itemCards}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={displayedItems.map((it) => it.id)} strategy={verticalListSortingStrategy}>
+              {displayedItems.map((item) => (
+                <SortableItemCard key={item.id} {...itemProps(item)} />
+              ))}
+            </SortableContext>
+          </DndContext>
           {displayedItems.length === 0 && (
             <p className="text-sm text-black/40 dark:text-white/40 italic px-1">
               {category.items.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}
@@ -223,7 +243,9 @@ export function CategorySection({
         <p className="px-4 py-3 text-sm text-white">All done — tap to review 🎉</p>
       ) : (
         <div className="divide-y divide-white/10">
-          {itemCards}
+          {displayedItems.map((item) => (
+            <ItemCard key={item.id} {...itemProps(item)} />
+          ))}
           {displayedItems.length === 0 && (
             <p className="px-4 py-3 text-sm text-white italic">
               {category.items.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}

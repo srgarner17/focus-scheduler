@@ -377,20 +377,20 @@ export function useSchedule() {
     });
   }
 
-  // Swaps two items within a category by id, wherever they currently sit in
-  // the underlying array. Takes explicit ids rather than a direction (unlike
-  // reorderSubStep below) because edit mode hides expired one-time items —
-  // the caller passes whichever item is visually adjacent in what it's
-  // actually showing, which may not be adjacent in the raw array. A no-op
-  // if either id can't be found (e.g. it was deleted in the meantime).
-  function reorderItem(categoryId: string, itemIdA: string, itemIdB: string) {
+  // Sets a category's full item order from a drag-and-drop reorder.
+  // `orderedIds` only covers the items the caller could actually show and
+  // let you drag (edit mode hides expired one-time items) — anything not
+  // in that list keeps its existing relative order, appended after the
+  // reordered ones. Those items are never visible or schedulable again
+  // (a one-time item's date has already passed), so their exact position
+  // in the array has no observable effect anywhere else in the app.
+  function reorderItems(categoryId: string, orderedIds: string[]) {
     updateCategory(categoryId, (c) => {
-      const items = [...c.items];
-      const indexA = items.findIndex((it) => it.id === itemIdA);
-      const indexB = items.findIndex((it) => it.id === itemIdB);
-      if (indexA === -1 || indexB === -1) return c;
-      [items[indexA], items[indexB]] = [items[indexB], items[indexA]];
-      return { ...c, items };
+      const byId = new Map(c.items.map((it) => [it.id, it]));
+      const reordered = orderedIds.map((id) => byId.get(id)).filter((it): it is ScheduleItem => it !== undefined);
+      const orderedIdSet = new Set(orderedIds);
+      const remaining = c.items.filter((it) => !orderedIdSet.has(it.id));
+      return { ...c, items: [...reordered, ...remaining] };
     });
   }
 
@@ -452,7 +452,7 @@ export function useSchedule() {
     updateItemTime,
     deleteItem,
     restoreItem,
-    reorderItem,
+    reorderItems,
     addSubStep,
     updateSubStepText,
     deleteSubStep,

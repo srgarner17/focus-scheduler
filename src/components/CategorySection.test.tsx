@@ -54,7 +54,7 @@ const baseProps = {
   updateItemNotes: noop,
   updateItemTime: noop,
   deleteItem: noop,
-  reorderItem: noop,
+  reorderItems: noop,
   addSubStep: noop,
   updateSubStepText: noop,
   deleteSubStep: noop,

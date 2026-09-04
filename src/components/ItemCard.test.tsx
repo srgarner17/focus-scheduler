@@ -39,10 +39,6 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
       color={colorStyles.blue}
       editMode
       revert={noopRevert}
-      canMoveUp={false}
-      canMoveDown={false}
-      onMoveUp={noop}
-      onMoveDown={noop}
       toggleItem={noop}
       toggleSubStep={noop}
       updateItemMeta={updateItemMeta}
@@ -161,18 +157,29 @@ describe('ItemCard text fields autosave directly, no draft', () => {
     expect(reorderSubStep).toHaveBeenCalledWith('cat-1', 'item-1', 's2', 'up');
   });
 
-  it('wires the item-level move up/down buttons to onMoveUp/onMoveDown, respecting disabled state', () => {
-    const onMoveUp = vi.fn();
-    const onMoveDown = vi.fn();
-    renderItem(makeItem(), { canMoveUp: false, canMoveDown: true, onMoveUp, onMoveDown });
+  it('renders no drag handle in edit mode unless a dragHandle prop is given', () => {
+    renderItem(makeItem());
+    expect(screen.queryByRole('button', { name: 'Drag to reorder' })).not.toBeInTheDocument();
+  });
 
-    const upButton = screen.getByRole('button', { name: 'Move item up' });
-    const downButton = screen.getByRole('button', { name: 'Move item down' });
-    expect(upButton).toBeDisabled();
-    expect(downButton).not.toBeDisabled();
+  it('spreads the dragHandle prop\'s attributes and listeners onto the drag handle button', () => {
+    const onPointerDown = vi.fn();
+    renderItem(makeItem(), {
+      dragHandle: {
+        attributes: {
+          role: 'button',
+          tabIndex: 0,
+          'aria-disabled': false,
+          'aria-pressed': undefined,
+          'aria-roledescription': 'sortable',
+          'aria-describedby': 'dnd-desc',
+        },
+        listeners: { onPointerDown },
+      },
+    });
 
-    fireEvent.click(downButton);
-    expect(onMoveDown).toHaveBeenCalledTimes(1);
-    expect(onMoveUp).not.toHaveBeenCalled();
+    const handle = screen.getByRole('button', { name: 'Drag to reorder' });
+    fireEvent.pointerDown(handle);
+    expect(onPointerDown).toHaveBeenCalledTimes(1);
   });
 });

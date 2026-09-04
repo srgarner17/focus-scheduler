@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { ScheduleItem } from '../types';
 import { ALL_DAYS, isItemDone, isItemScheduledOn } from '../types';
 import type { ColorStyle } from '../lib/colors';
@@ -7,16 +8,18 @@ import { formatDateShort, todayDayIndex, todayKey } from '../lib/date';
 import { DayPicker } from './DayPicker';
 import { RevertButton } from './RevertButton';
 
+export interface DragHandleProps {
+  attributes: DraggableAttributes;
+  listeners: DraggableSyntheticListeners;
+}
+
 interface Props {
   categoryId: string;
   item: ScheduleItem;
   color: ColorStyle;
   editMode: boolean;
   revert: EditRevertControls;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  dragHandle?: DragHandleProps;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
   updateItemMeta: (categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) => void;
@@ -36,10 +39,7 @@ export function ItemCard({
   color,
   editMode,
   revert,
-  canMoveUp,
-  canMoveDown,
-  onMoveUp,
-  onMoveDown,
+  dragHandle,
   toggleItem,
   toggleSubStep,
   updateItemMeta,
@@ -175,27 +175,16 @@ export function ItemCard({
           )}
         </button>
 
-        {editMode && (
-          <div className="flex shrink-0 flex-col">
-            <button
-              type="button"
-              onClick={onMoveUp}
-              disabled={!canMoveUp}
-              aria-label="Move item up"
-              className="px-0.5 text-sm text-black/40 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/40 dark:hover:text-white/70"
-            >
-              ▲
-            </button>
-            <button
-              type="button"
-              onClick={onMoveDown}
-              disabled={!canMoveDown}
-              aria-label="Move item down"
-              className="px-0.5 text-sm text-black/40 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/40 dark:hover:text-white/70"
-            >
-              ▼
-            </button>
-          </div>
+        {editMode && dragHandle && (
+          <button
+            type="button"
+            {...dragHandle.attributes}
+            {...dragHandle.listeners}
+            aria-label="Drag to reorder"
+            className="shrink-0 flex h-9 w-9 touch-none cursor-grab items-center justify-center rounded-full text-lg text-black/40 hover:bg-black/5 active:cursor-grabbing dark:text-white/40 dark:hover:bg-white/10"
+          >
+            ⠿
+          </button>
         )}
 
         {(hasDetails || editMode) && (
