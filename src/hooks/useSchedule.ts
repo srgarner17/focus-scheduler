@@ -377,6 +377,23 @@ export function useSchedule() {
     });
   }
 
+  // Swaps two items within a category by id, wherever they currently sit in
+  // the underlying array. Takes explicit ids rather than a direction (unlike
+  // reorderSubStep below) because edit mode hides expired one-time items —
+  // the caller passes whichever item is visually adjacent in what it's
+  // actually showing, which may not be adjacent in the raw array. A no-op
+  // if either id can't be found (e.g. it was deleted in the meantime).
+  function reorderItem(categoryId: string, itemIdA: string, itemIdB: string) {
+    updateCategory(categoryId, (c) => {
+      const items = [...c.items];
+      const indexA = items.findIndex((it) => it.id === itemIdA);
+      const indexB = items.findIndex((it) => it.id === itemIdB);
+      if (indexA === -1 || indexB === -1) return c;
+      [items[indexA], items[indexB]] = [items[indexB], items[indexA]];
+      return { ...c, items };
+    });
+  }
+
   function addSubStep(categoryId: string, itemId: string, text: string) {
     updateItem(categoryId, itemId, (it) => ({
       ...it,
@@ -435,6 +452,7 @@ export function useSchedule() {
     updateItemTime,
     deleteItem,
     restoreItem,
+    reorderItem,
     addSubStep,
     updateSubStepText,
     deleteSubStep,

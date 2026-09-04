@@ -223,6 +223,7 @@ function App() {
                   updateItemNotes={s.updateItemNotes}
                   updateItemTime={s.updateItemTime}
                   deleteItem={handleDeleteItem}
+                  reorderItem={s.reorderItem}
                   addSubStep={s.addSubStep}
                   updateSubStepText={s.updateSubStepText}
                   deleteSubStep={s.deleteSubStep}

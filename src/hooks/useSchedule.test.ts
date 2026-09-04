@@ -563,6 +563,28 @@ describe('useSchedule', () => {
     expect(result.current.data!.categories[0].items[0].subSteps.map((s) => s.id)).toEqual(afterUp);
   });
 
+  it('reorderItem swaps two items within a category by id, immediately, and is a no-op if either id is missing', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const originalOrder = category.items.map((it) => it.id);
+    expect(originalOrder.length).toBeGreaterThanOrEqual(3);
+
+    act(() => {
+      result.current.reorderItem(category.id, originalOrder[0], originalOrder[1]);
+    });
+    // Same tick — immediate, not debounced, like reorderSubStep.
+    const afterSwap = result.current.data!.categories[0].items.map((it) => it.id);
+    expect(afterSwap).toEqual([originalOrder[1], originalOrder[0], ...originalOrder.slice(2)]);
+    await waitFor(() => expect(getServerDoc()?.categories[0].items.map((it) => it.id)).toEqual(afterSwap));
+
+    // Neither a real item paired with a nonexistent id, nor two nonexistent
+    // ids, should change anything — a no-op, not a crash.
+    act(() => {
+      result.current.reorderItem(category.id, afterSwap[0], 'does-not-exist');
+    });
+    expect(result.current.data!.categories[0].items.map((it) => it.id)).toEqual(afterSwap);
+  });
+
   it('restoreCategory re-inserts a deleted category at its original index, fully intact', async () => {
     const { result } = await mountSchedule();
     const categoryToDelete = result.current.data!.categories[1];
