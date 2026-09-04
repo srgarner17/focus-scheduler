@@ -563,26 +563,38 @@ describe('useSchedule', () => {
     expect(result.current.data!.categories[0].items[0].subSteps.map((s) => s.id)).toEqual(afterUp);
   });
 
-  it('reorderItem swaps two items within a category by id, immediately, and is a no-op if either id is missing', async () => {
+  it('reorderItems sets the full item order from an ordered id list, immediately', async () => {
     const { result } = await mountSchedule();
     const category = result.current.data!.categories[0];
     const originalOrder = category.items.map((it) => it.id);
     expect(originalOrder.length).toBeGreaterThanOrEqual(3);
 
+    const reversed = [...originalOrder].reverse();
     act(() => {
-      result.current.reorderItem(category.id, originalOrder[0], originalOrder[1]);
+      result.current.reorderItems(category.id, reversed);
     });
     // Same tick — immediate, not debounced, like reorderSubStep.
-    const afterSwap = result.current.data!.categories[0].items.map((it) => it.id);
-    expect(afterSwap).toEqual([originalOrder[1], originalOrder[0], ...originalOrder.slice(2)]);
-    await waitFor(() => expect(getServerDoc()?.categories[0].items.map((it) => it.id)).toEqual(afterSwap));
+    expect(result.current.data!.categories[0].items.map((it) => it.id)).toEqual(reversed);
+    await waitFor(() => expect(getServerDoc()?.categories[0].items.map((it) => it.id)).toEqual(reversed));
+  });
 
-    // Neither a real item paired with a nonexistent id, nor two nonexistent
-    // ids, should change anything — a no-op, not a crash.
+  it('reorderItems appends any item missing from the ordered list, preserving its relative order', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const originalOrder = category.items.map((it) => it.id);
+    expect(originalOrder.length).toBeGreaterThanOrEqual(4);
+
+    // Drag-and-drop only ever reorders the items edit mode actually shows —
+    // an expired one-time item stays hidden and out of the dragged list, but
+    // must still end up somewhere sane afterward, not dropped.
+    const draggedOrder = [originalOrder[2], originalOrder[0], originalOrder[1]];
     act(() => {
-      result.current.reorderItem(category.id, afterSwap[0], 'does-not-exist');
+      result.current.reorderItems(category.id, draggedOrder);
     });
-    expect(result.current.data!.categories[0].items.map((it) => it.id)).toEqual(afterSwap);
+    expect(result.current.data!.categories[0].items.map((it) => it.id)).toEqual([
+      ...draggedOrder,
+      ...originalOrder.slice(3),
+    ]);
   });
 
   it('restoreCategory re-inserts a deleted category at its original index, fully intact', async () => {
