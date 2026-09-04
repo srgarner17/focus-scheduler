@@ -13,6 +13,10 @@ interface Props {
   color: ColorStyle;
   editMode: boolean;
   revert: EditRevertControls;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
   updateItemMeta: (categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) => void;
@@ -32,6 +36,10 @@ export function ItemCard({
   color,
   editMode,
   revert,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
   toggleItem,
   toggleSubStep,
   updateItemMeta,
@@ -166,6 +174,29 @@ export function ItemCard({
             </div>
           )}
         </button>
+
+        {editMode && (
+          <div className="flex shrink-0 flex-col">
+            <button
+              type="button"
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+              aria-label="Move item up"
+              className="px-0.5 text-sm text-black/40 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/40 dark:hover:text-white/70"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+              aria-label="Move item down"
+              className="px-0.5 text-sm text-black/40 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/40 dark:hover:text-white/70"
+            >
+              ▼
+            </button>
+          </div>
+        )}
 
         {(hasDetails || editMode) && (
           <button

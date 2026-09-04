@@ -27,6 +27,7 @@ interface Props {
   updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
   updateItemTime: (categoryId: string, itemId: string, time: string) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
+  reorderItem: (categoryId: string, itemIdA: string, itemIdB: string) => void;
   addSubStep: (categoryId: string, itemId: string, text: string) => void;
   updateSubStepText: (categoryId: string, itemId: string, subStepId: string, text: string) => void;
   deleteSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
@@ -48,6 +49,7 @@ export function CategorySection({
   updateItemNotes,
   updateItemTime,
   deleteItem,
+  reorderItem,
   addSubStep,
   updateSubStepText,
   deleteSubStep,
@@ -81,7 +83,10 @@ export function CategorySection({
 
   const categoryNameKey = `category:${category.id}:name`;
 
-  const itemCards = displayedItems.map((item) => (
+  // Moving an item swaps it with whichever neighbor is visually adjacent in
+  // this (possibly filtered) displayed list, not necessarily adjacent in the
+  // category's raw item array — see reorderItem's comment in useSchedule.ts.
+  const itemCards = displayedItems.map((item, index) => (
     <ItemCard
       key={item.id}
       categoryId={category.id}
@@ -89,6 +94,16 @@ export function CategorySection({
       color={color}
       editMode={editMode}
       revert={revert}
+      canMoveUp={index > 0}
+      canMoveDown={index < displayedItems.length - 1}
+      onMoveUp={() => {
+        const neighbor = displayedItems[index - 1];
+        if (neighbor) reorderItem(category.id, item.id, neighbor.id);
+      }}
+      onMoveDown={() => {
+        const neighbor = displayedItems[index + 1];
+        if (neighbor) reorderItem(category.id, item.id, neighbor.id);
+      }}
       toggleItem={toggleItem}
       toggleSubStep={toggleSubStep}
       updateItemMeta={updateItemMeta}

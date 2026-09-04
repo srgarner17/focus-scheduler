@@ -39,6 +39,10 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
       color={colorStyles.blue}
       editMode
       revert={noopRevert}
+      canMoveUp={false}
+      canMoveDown={false}
+      onMoveUp={noop}
+      onMoveDown={noop}
       toggleItem={noop}
       toggleSubStep={noop}
       updateItemMeta={updateItemMeta}
@@ -155,5 +159,20 @@ describe('ItemCard text fields autosave directly, no draft', () => {
 
     fireEvent.click(upButtons[1]);
     expect(reorderSubStep).toHaveBeenCalledWith('cat-1', 'item-1', 's2', 'up');
+  });
+
+  it('wires the item-level move up/down buttons to onMoveUp/onMoveDown, respecting disabled state', () => {
+    const onMoveUp = vi.fn();
+    const onMoveDown = vi.fn();
+    renderItem(makeItem(), { canMoveUp: false, canMoveDown: true, onMoveUp, onMoveDown });
+
+    const upButton = screen.getByRole('button', { name: 'Move item up' });
+    const downButton = screen.getByRole('button', { name: 'Move item down' });
+    expect(upButton).toBeDisabled();
+    expect(downButton).not.toBeDisabled();
+
+    fireEvent.click(downButton);
+    expect(onMoveDown).toHaveBeenCalledTimes(1);
+    expect(onMoveUp).not.toHaveBeenCalled();
   });
 });
