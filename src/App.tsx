@@ -93,9 +93,12 @@ function App() {
   const data = s.data;
   const today = todayDayIndex();
   const todayDateKey = todayKey();
+  // Skipped items are excluded from the progress count entirely, as if they
+  // weren't scheduled today — they still render in the category lists below
+  // (dimmed, with their own distinct state), just not counted here.
   const allItems = data.categories
     .flatMap((c) => c.items)
-    .filter((it) => isItemScheduledOn(it, todayDateKey, today));
+    .filter((it) => isItemScheduledOn(it, todayDateKey, today) && !it.skipped);
   const totalCount = allItems.length;
   const doneCount = allItems.filter(isItemDone).length;
   const percent = totalCount === 0 ? 0 : (doneCount / totalCount) * 100;
@@ -214,6 +217,7 @@ function App() {
                   revert={revert}
                   toggleItem={s.toggleItem}
                   toggleSubStep={s.toggleSubStep}
+                  toggleSkip={s.toggleSkip}
                   updateCategoryMeta={s.updateCategoryMeta}
                   updateCategoryName={s.updateCategoryName}
                   deleteCategory={handleDeleteCategory}

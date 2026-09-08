@@ -22,6 +22,7 @@ interface Props {
   dragHandle?: DragHandleProps;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
+  toggleSkip: (categoryId: string, itemId: string) => void;
   updateItemMeta: (categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) => void;
   updateItemTitle: (categoryId: string, itemId: string, title: string) => void;
   updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
@@ -41,6 +42,7 @@ export function ItemCard({
   dragHandle,
   toggleItem,
   toggleSubStep,
+  toggleSkip,
   updateItemMeta,
   updateItemTitle,
   updateItemNotes,
@@ -86,15 +88,19 @@ export function ItemCard({
           onClick={() => toggleItem(categoryId, item.id)}
           className={`shrink-0 flex items-center justify-center h-11 w-11 rounded-full border-2 text-xl transition-all active:scale-90 ${
             editMode
-              ? done
-                ? `${color.chip} border-transparent text-white`
-                : 'border-black/20 dark:border-white/25 text-transparent hover:border-black/40'
-              : done
-                ? `bg-white border-transparent ${color.checkFg}`
-                : 'border-white/70 text-transparent hover:border-white'
+              ? item.skipped
+                ? 'bg-black/10 dark:bg-white/10 border-transparent text-black/40 dark:text-white/40'
+                : done
+                  ? `${color.chip} border-transparent text-white`
+                  : 'border-black/20 dark:border-white/25 text-transparent hover:border-black/40'
+              : item.skipped
+                ? 'bg-white/25 border-transparent text-white'
+                : done
+                  ? `bg-white border-transparent ${color.checkFg}`
+                  : 'border-white/70 text-transparent hover:border-white'
           }`}
         >
-          {done ? '✓' : ''}
+          {item.skipped ? '－' : done ? '✓' : ''}
         </button>
 
         <button
@@ -138,20 +144,43 @@ export function ItemCard({
               ) : (
                 !isEveryDay && <span className="text-xs text-black/40 dark:text-white/40">not every day</span>
               )}
+              {item.skipped && <span className="text-xs text-black/40 dark:text-white/40">skipped today</span>}
             </div>
           ) : (
             <div className="flex items-baseline gap-2">
               <span className="text-xl leading-none">{item.emoji}</span>
-              <span className={`font-semibold text-white ${done ? 'line-through opacity-75' : ''}`}>{item.title}</span>
+              <span
+                className={`font-semibold text-white ${
+                  done ? 'line-through opacity-75' : item.skipped ? 'opacity-70' : ''
+                }`}
+              >
+                {item.title}
+              </span>
               {isOneTime && <span className="text-xs text-white">{formatDateShort(item.date)}</span>}
             </div>
           )}
-          {!editMode && item.subSteps.length > 0 && (
+          {!editMode && item.skipped && <div className="mt-1 text-xs text-white/80">Skipped today</div>}
+          {!editMode && !item.skipped && item.subSteps.length > 0 && (
             <div className="mt-1 text-xs text-white">
               {item.subSteps.filter((s) => s.done).length}/{item.subSteps.length} steps
             </div>
           )}
         </button>
+
+        {editMode && (
+          <button
+            type="button"
+            onClick={() => toggleSkip(categoryId, item.id)}
+            aria-label={item.skipped ? 'Unskip for today' : 'Skip for today'}
+            className={`shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-lg ${
+              item.skipped
+                ? 'text-black/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10'
+                : 'text-black/40 hover:bg-black/5 dark:text-white/40 dark:hover:bg-white/10'
+            }`}
+          >
+            <span aria-hidden="true">⊘</span>
+          </button>
+        )}
 
         {editMode && dragHandle && (
           <button

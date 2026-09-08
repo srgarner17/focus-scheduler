@@ -49,6 +49,7 @@ describe('normalize', () => {
               notes: '',
               subSteps: [],
               done: false,
+              skipped: false,
               // @ts-expect-error simulating pre-migration data with no `days`
               days: undefined,
               date: '',
@@ -76,6 +77,7 @@ describe('normalize', () => {
               notes: '',
               subSteps: [],
               done: false,
+              skipped: false,
               days: [1, 2, 3],
               // @ts-expect-error simulating pre-migration data with no `date`
               date: undefined,
@@ -103,6 +105,7 @@ describe('normalize', () => {
               notes: '',
               subSteps: [],
               done: false,
+              skipped: false,
               days: [2],
               date: '2026-09-01',
             },
@@ -113,6 +116,34 @@ describe('normalize', () => {
     const normalized = normalize(data);
     expect(normalized.categories[0].items[0].days).toEqual([2]);
     expect(normalized.categories[0].items[0].date).toBe('2026-09-01');
+  });
+
+  it('backfills a missing item.skipped with false', () => {
+    const data = baseData({
+      categories: [
+        {
+          id: 'c1',
+          name: 'Chores',
+          emoji: '🧹',
+          color: 'blue',
+          items: [
+            {
+              id: 'i1',
+              title: 'Old item',
+              emoji: '✅',
+              notes: '',
+              subSteps: [],
+              done: false,
+              days: [0, 1, 2, 3, 4, 5, 6],
+              date: '',
+              // @ts-expect-error simulating pre-migration data with no `skipped`
+              skipped: undefined,
+            },
+          ],
+        },
+      ],
+    });
+    expect(normalize(data).categories[0].items[0].skipped).toBe(false);
   });
 });
 
@@ -143,6 +174,7 @@ describe('resetCompletion', () => {
                 { id: 's2', text: 'b', done: true },
               ],
               done: false,
+              skipped: false,
               days: [0, 1, 2, 3, 4, 5, 6],
               date: '',
             },
@@ -153,6 +185,18 @@ describe('resetCompletion', () => {
               notes: '',
               subSteps: [],
               done: true,
+              skipped: false,
+              days: [0, 1, 2, 3, 4, 5, 6],
+              date: '',
+            },
+            {
+              id: 'i3',
+              title: 'Skipped item',
+              emoji: '✅',
+              notes: '',
+              subSteps: [],
+              done: false,
+              skipped: true,
               days: [0, 1, 2, 3, 4, 5, 6],
               date: '',
             },
@@ -163,5 +207,6 @@ describe('resetCompletion', () => {
     const reset = resetCompletion(data);
     expect(reset.categories[0].items[0].subSteps.every((s) => !s.done)).toBe(true);
     expect(reset.categories[0].items[1].done).toBe(false);
+    expect(reset.categories[0].items[2].skipped).toBe(false);
   });
 });

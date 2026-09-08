@@ -25,6 +25,7 @@ interface Props {
   revert: EditRevertControls;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
+  toggleSkip: (categoryId: string, itemId: string) => void;
   updateCategoryMeta: (categoryId: string, patch: Partial<Pick<Category, 'name' | 'emoji'>>) => void;
   updateCategoryName: (categoryId: string, name: string) => void;
   deleteCategory: (categoryId: string) => void;
@@ -50,6 +51,7 @@ export function CategorySection({
   revert,
   toggleItem,
   toggleSubStep,
+  toggleSkip,
   updateCategoryMeta,
   updateCategoryName,
   deleteCategory,
@@ -67,16 +69,20 @@ export function CategorySection({
   const color = colorStyles[category.color];
   const today = todayDayIndex();
   const todayDateKey = todayKey();
-  const activeItems = category.items.filter((it) => isItemScheduledOn(it, todayDateKey, today));
+  const scheduledToday = category.items.filter((it) => isItemScheduledOn(it, todayDateKey, today));
   // Edit mode otherwise shows every item regardless of today's schedule, so a
   // parent can get to items on other days — but a one-time item whose date
   // has already passed has nothing left to edit and would just clutter the
   // list forever, so it's excluded even in edit mode.
   const displayedItems = editMode
     ? category.items.filter((it) => !isOneTimeInPast(it, todayDateKey))
-    : activeItems;
-  const total = activeItems.length;
-  const doneCount = activeItems.filter(isItemDone).length;
+    : scheduledToday;
+  // Skipped items stay visible in `displayedItems` above (dimmed, in their
+  // own state) but don't count toward progress, as if they weren't
+  // scheduled today at all.
+  const countedItems = scheduledToday.filter((it) => !it.skipped);
+  const total = countedItems.length;
+  const doneCount = countedItems.filter(isItemDone).length;
   const percent = total === 0 ? 0 : (doneCount / total) * 100;
   const allDone = total > 0 && doneCount === total;
 
@@ -119,6 +125,7 @@ export function CategorySection({
     revert,
     toggleItem,
     toggleSubStep,
+    toggleSkip,
     updateItemMeta,
     updateItemTitle,
     updateItemNotes,
