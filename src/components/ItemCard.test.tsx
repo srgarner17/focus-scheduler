@@ -213,26 +213,38 @@ function renderViewMode(item: ScheduleItem, overrides: Partial<Record<string, un
   return { ...utils, toggleSkip, toggleItem };
 }
 
+// Skip is a structural, parent-only decision — the toggle control lives in
+// edit mode, gated the same as everything else there. View mode still shows
+// a skipped item's state (a kid should see it, just not set it), read-only.
 describe('ItemCard skip for today', () => {
-  it('calls toggleSkip when the skip icon is tapped', () => {
-    const { toggleSkip } = renderViewMode(makeItem());
-    const skipButton = screen.getByRole('button', { name: 'Skip for today' });
-    fireEvent.click(skipButton);
+  it('calls toggleSkip when the skip icon is tapped in edit mode', () => {
+    const toggleSkip = vi.fn();
+    renderItem(makeItem(), { toggleSkip });
+    fireEvent.click(screen.getByRole('button', { name: 'Skip for today' }));
     expect(toggleSkip).toHaveBeenCalledWith('cat-1', 'item-1');
   });
 
-  it('never renders a skip control in edit mode', () => {
-    renderItem(makeItem());
+  it('shows the skipped state in edit mode too — a muted dash checkbox and an inline label', () => {
+    renderItem(makeItem({ skipped: true }));
+    expect(screen.getByRole('button', { name: 'Unskip for today' })).toBeInTheDocument();
+    expect(screen.getByText('skipped today')).toBeInTheDocument();
+  });
+
+  it('never renders a toggle control in view mode when not skipped — skip is edit-mode only', () => {
+    renderViewMode(makeItem());
+    expect(screen.queryByRole('button', { name: /skip for today/i })).not.toBeInTheDocument();
+  });
+
+  it('never renders a toggle control in view mode when already skipped either', () => {
+    renderViewMode(makeItem({ skipped: true }));
     expect(screen.queryByRole('button', { name: /skip for today/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /unskip/i })).not.toBeInTheDocument();
   });
 
-  it('shows a distinct skipped state — not the same look as done — with a label and no strikethrough', () => {
+  it('shows a distinct read-only skipped state in view mode — not the same look as done, with a label and no strikethrough', () => {
     renderViewMode(makeItem({ skipped: true, title: 'Feed the Dog' }));
 
     expect(screen.getByText('Skipped today')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Unskip for today' })).toBeInTheDocument();
-
     const title = screen.getByText('Feed the Dog');
     expect(title.className).not.toContain('line-through');
   });
