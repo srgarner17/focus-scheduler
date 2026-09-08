@@ -18,6 +18,7 @@ export function normalize(data: ScheduleData): ScheduleData {
         ...it,
         days: Array.isArray(it.days) ? it.days : ALL_DAYS,
         date: typeof it.date === 'string' ? it.date : '',
+        skipped: typeof it.skipped === 'boolean' ? it.skipped : false,
       })),
     })),
   };
@@ -32,6 +33,7 @@ export function resetCompletion(data: ScheduleData): ScheduleData {
       items: cat.items.map((it) => ({
         ...it,
         done: false,
+        skipped: false,
         subSteps: it.subSteps.map((s) => ({ ...s, done: false })),
       })),
     })),

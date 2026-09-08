@@ -259,13 +259,17 @@ export function useSchedule() {
     }));
   }
 
+  // Marking done (or un-marking) always clears `skipped` — the two are
+  // mutually exclusive, and by the time this fires `skipped` should already
+  // be false anyway (toggleSkip clears done first), but this keeps the
+  // invariant true unconditionally rather than relying on caller order.
   function toggleItem(categoryId: string, itemId: string) {
     updateItem(categoryId, itemId, (it) => {
       if (it.subSteps.length > 0) {
         const allDone = it.subSteps.every((s) => s.done);
-        return { ...it, subSteps: it.subSteps.map((s) => ({ ...s, done: !allDone })) };
+        return { ...it, subSteps: it.subSteps.map((s) => ({ ...s, done: !allDone })), skipped: false };
       }
-      return { ...it, done: !it.done };
+      return { ...it, done: !it.done, skipped: false };
     });
   }
 
@@ -273,7 +277,21 @@ export function useSchedule() {
     updateItem(categoryId, itemId, (it) => ({
       ...it,
       subSteps: it.subSteps.map((s) => (s.id === subStepId ? { ...s, done: !s.done } : s)),
+      skipped: false,
     }));
+  }
+
+  // Marks an item as not applying today (or reverses that) — mutually
+  // exclusive with done: skipping clears done and every sub-step's done,
+  // since a day can't be both skipped and completed. Un-skipping just
+  // clears the flag; it doesn't restore whatever done-state existed before
+  // (there's nothing meaningful to restore back to).
+  function toggleSkip(categoryId: string, itemId: string) {
+    updateItem(categoryId, itemId, (it) => {
+      const skipped = !it.skipped;
+      if (!skipped) return { ...it, skipped };
+      return { ...it, skipped, done: false, subSteps: it.subSteps.map((s) => ({ ...s, done: false })) };
+    });
   }
 
   function resetAll() {
@@ -333,6 +351,7 @@ export function useSchedule() {
       notes: '',
       subSteps: [],
       done: false,
+      skipped: false,
       days: ALL_DAYS,
       date: '',
     };
@@ -432,6 +451,7 @@ export function useSchedule() {
     retrySave,
     toggleItem,
     toggleSubStep,
+    toggleSkip,
     resetAll,
     setChildName,
     setEditPin,

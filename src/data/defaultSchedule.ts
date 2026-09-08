@@ -15,6 +15,7 @@ function item(
     emoji,
     notes,
     done: false,
+    skipped: false,
     days,
     date: '',
     subSteps: subSteps.map((text) => ({ id: makeId(), text, done: false })),

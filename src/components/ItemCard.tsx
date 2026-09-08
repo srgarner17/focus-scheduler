@@ -22,6 +22,7 @@ interface Props {
   dragHandle?: DragHandleProps;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
+  toggleSkip: (categoryId: string, itemId: string) => void;
   updateItemMeta: (categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) => void;
   updateItemTitle: (categoryId: string, itemId: string, title: string) => void;
   updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
@@ -41,6 +42,7 @@ export function ItemCard({
   dragHandle,
   toggleItem,
   toggleSubStep,
+  toggleSkip,
   updateItemMeta,
   updateItemTitle,
   updateItemNotes,
@@ -89,12 +91,14 @@ export function ItemCard({
               ? done
                 ? `${color.chip} border-transparent text-white`
                 : 'border-black/20 dark:border-white/25 text-transparent hover:border-black/40'
-              : done
-                ? `bg-white border-transparent ${color.checkFg}`
-                : 'border-white/70 text-transparent hover:border-white'
+              : item.skipped
+                ? 'bg-white/25 border-transparent text-white'
+                : done
+                  ? `bg-white border-transparent ${color.checkFg}`
+                  : 'border-white/70 text-transparent hover:border-white'
           }`}
         >
-          {done ? '✓' : ''}
+          {editMode ? (done ? '✓' : '') : item.skipped ? '－' : done ? '✓' : ''}
         </button>
 
         <button
@@ -142,16 +146,36 @@ export function ItemCard({
           ) : (
             <div className="flex items-baseline gap-2">
               <span className="text-xl leading-none">{item.emoji}</span>
-              <span className={`font-semibold text-white ${done ? 'line-through opacity-75' : ''}`}>{item.title}</span>
+              <span
+                className={`font-semibold text-white ${
+                  done ? 'line-through opacity-75' : item.skipped ? 'opacity-70' : ''
+                }`}
+              >
+                {item.title}
+              </span>
               {isOneTime && <span className="text-xs text-white">{formatDateShort(item.date)}</span>}
             </div>
           )}
-          {!editMode && item.subSteps.length > 0 && (
+          {!editMode && item.skipped && <div className="mt-1 text-xs text-white/80">Skipped today</div>}
+          {!editMode && !item.skipped && item.subSteps.length > 0 && (
             <div className="mt-1 text-xs text-white">
               {item.subSteps.filter((s) => s.done).length}/{item.subSteps.length} steps
             </div>
           )}
         </button>
+
+        {!editMode && (
+          <button
+            type="button"
+            onClick={() => toggleSkip(categoryId, item.id)}
+            aria-label={item.skipped ? 'Unskip for today' : 'Skip for today'}
+            className={`shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-lg ${
+              item.skipped ? 'text-white hover:bg-white/10' : 'text-white/60 hover:bg-white/10 hover:text-white/90'
+            }`}
+          >
+            <span aria-hidden="true">⊘</span>
+          </button>
+        )}
 
         {editMode && dragHandle && (
           <button

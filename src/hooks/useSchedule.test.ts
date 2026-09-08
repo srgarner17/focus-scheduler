@@ -148,6 +148,51 @@ describe('useSchedule', () => {
     expect(result.current.data!.categories[0].items[0].subSteps.every((s) => s.done)).toBe(false);
   });
 
+  it('toggleSkip marks an item skipped and clears done (and every sub-step done), reversibly', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const item = category.items[0];
+    expect(item.subSteps.length).toBeGreaterThan(0);
+
+    // Complete it first, so skipping it actually has something to clear.
+    act(() => {
+      result.current.toggleItem(category.id, item.id);
+    });
+    expect(result.current.data!.categories[0].items[0].subSteps.every((s) => s.done)).toBe(true);
+
+    act(() => {
+      result.current.toggleSkip(category.id, item.id);
+    });
+    const skipped = result.current.data!.categories[0].items[0];
+    expect(skipped.skipped).toBe(true);
+    expect(skipped.subSteps.every((s) => !s.done)).toBe(true);
+
+    // Un-skipping just clears the flag — it doesn't restore whatever
+    // done-state existed before, there's nothing meaningful to go back to.
+    act(() => {
+      result.current.toggleSkip(category.id, item.id);
+    });
+    const unskipped = result.current.data!.categories[0].items[0];
+    expect(unskipped.skipped).toBe(false);
+    expect(unskipped.subSteps.every((s) => !s.done)).toBe(true);
+  });
+
+  it('marking an item done clears skipped, since the two are mutually exclusive', async () => {
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    const item = category.items[0];
+
+    act(() => {
+      result.current.toggleSkip(category.id, item.id);
+    });
+    expect(result.current.data!.categories[0].items[0].skipped).toBe(true);
+
+    act(() => {
+      result.current.toggleItem(category.id, item.id);
+    });
+    expect(result.current.data!.categories[0].items[0].skipped).toBe(false);
+  });
+
   it('addItem appends a new item and deleteItem removes it, persisting through the transaction', async () => {
     const { result } = await mountSchedule();
     const categoryId = result.current.data!.categories[0].id;

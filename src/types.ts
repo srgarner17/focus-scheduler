@@ -11,6 +11,7 @@ export interface ScheduleItem {
   notes: string; // free-text tip shown to help him get it right
   subSteps: SubStep[];
   done: boolean; // used directly only when subSteps is empty
+  skipped: boolean; // transient, reset nightly like done — "doesn't apply today," mutually exclusive with done
   days: number[]; // which days this item is active: 0=Sun..6=Sat (matches Date#getDay()) — ignored when `date` is set
   date: string; // YYYY-MM-DD — when set, this is a one-time item active only on that exact date, never repeats
 }

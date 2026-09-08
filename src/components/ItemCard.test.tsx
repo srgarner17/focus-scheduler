@@ -14,6 +14,7 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     notes: '',
     subSteps: [],
     done: false,
+    skipped: false,
     days: ALL_DAYS,
     date: '',
     ...overrides,
@@ -39,6 +40,7 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
       revert={noopRevert}
       toggleItem={noop}
       toggleSubStep={noop}
+      toggleSkip={noop}
       updateItemMeta={updateItemMeta}
       updateItemTitle={updateItemTitle}
       updateItemNotes={updateItemNotes}
@@ -178,5 +180,66 @@ describe('ItemCard text fields autosave directly, no draft', () => {
     const handle = screen.getByRole('button', { name: 'Drag to reorder' });
     fireEvent.pointerDown(handle);
     expect(onPointerDown).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Skip only ever renders in view (non-edit) mode, and renderItem() above
+// hardcodes editMode plus auto-expands the item — neither fits here, so
+// these render the card directly instead.
+function renderViewMode(item: ScheduleItem, overrides: Partial<Record<string, unknown>> = {}) {
+  const toggleSkip = vi.fn();
+  const toggleItem = vi.fn();
+  const utils = render(
+    <ItemCard
+      categoryId="cat-1"
+      item={item}
+      color={colorStyles.blue}
+      editMode={false}
+      revert={noopRevert}
+      toggleItem={toggleItem}
+      toggleSubStep={noop}
+      toggleSkip={toggleSkip}
+      updateItemMeta={noop}
+      updateItemTitle={noop}
+      updateItemNotes={noop}
+      deleteItem={noop}
+      addSubStep={noop}
+      updateSubStepText={noop}
+      deleteSubStep={noop}
+      reorderSubStep={noop}
+      {...overrides}
+    />,
+  );
+  return { ...utils, toggleSkip, toggleItem };
+}
+
+describe('ItemCard skip for today', () => {
+  it('calls toggleSkip when the skip icon is tapped', () => {
+    const { toggleSkip } = renderViewMode(makeItem());
+    const skipButton = screen.getByRole('button', { name: 'Skip for today' });
+    fireEvent.click(skipButton);
+    expect(toggleSkip).toHaveBeenCalledWith('cat-1', 'item-1');
+  });
+
+  it('never renders a skip control in edit mode', () => {
+    renderItem(makeItem());
+    expect(screen.queryByRole('button', { name: /skip for today/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /unskip/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a distinct skipped state — not the same look as done — with a label and no strikethrough', () => {
+    renderViewMode(makeItem({ skipped: true, title: 'Feed the Dog' }));
+
+    expect(screen.getByText('Skipped today')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unskip for today' })).toBeInTheDocument();
+
+    const title = screen.getByText('Feed the Dog');
+    expect(title.className).not.toContain('line-through');
+  });
+
+  it('the main checkbox still works normally on a skipped item — toggleItem (which clears skipped, per useSchedule.ts) fires as usual', () => {
+    const { toggleItem } = renderViewMode(makeItem({ skipped: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mark done' }));
+    expect(toggleItem).toHaveBeenCalledWith('cat-1', 'item-1');
   });
 });
