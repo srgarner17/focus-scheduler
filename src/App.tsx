@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useSchedule } from './hooks/useSchedule';
@@ -16,6 +18,7 @@ import { friendlyDate, todayDayIndex, todayKey } from './lib/date';
 import { colorStyles } from './lib/colors';
 import { buildFocusSequence } from './lib/focusOrder';
 import { SortableCategorySection } from './components/SortableCategorySection';
+import { CategoryDragPreview } from './components/CategoryDragPreview';
 import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
 import { WeekView } from './components/WeekView';
@@ -39,6 +42,7 @@ function App() {
   const [view, setView] = useState<'today' | 'week'>('today');
   const [focusMode, setFocusMode] = useState(false);
   const [focusOrderEditorOpen, setFocusOrderEditorOpen] = useState(false);
+  const [draggingCategoryId, setDraggingCategoryId] = useState<string | null>(null);
   const [pinPromptOpen, setPinPromptOpen] = useState(false);
   const [newPinDraft, setNewPinDraft] = useState('');
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
@@ -56,7 +60,12 @@ function App() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  function handleCategoryDragStart(event: DragStartEvent) {
+    setDraggingCategoryId(event.active.id as string);
+  }
+
   function handleCategoryDragEnd(event: DragEndEvent) {
+    setDraggingCategoryId(null);
     if (!s.data) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -152,6 +161,10 @@ function App() {
     buildFocusSequence(data).find(
       ({ item }) => isItemScheduledOn(item, todayDateKey, today) && !item.skipped && !isItemDone(item),
     ) ?? null;
+
+  const draggingCategory = draggingCategoryId
+    ? (data.categories.find((c) => c.id === draggingCategoryId) ?? null)
+    : null;
 
   return (
     <div className="min-h-svh bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
@@ -295,7 +308,13 @@ function App() {
             )
           ) : (
             <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-x-10 xl:grid-cols-3">
-              <DndContext sensors={categorySensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+              <DndContext
+                sensors={categorySensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleCategoryDragStart}
+                onDragEnd={handleCategoryDragEnd}
+                onDragCancel={() => setDraggingCategoryId(null)}
+              >
                 <SortableContext items={data.categories.map((c) => c.id)} strategy={rectSortingStrategy}>
                   {data.categories.map((category) => (
                     <SortableCategorySection
@@ -322,6 +341,7 @@ function App() {
                     />
                   ))}
                 </SortableContext>
+                <DragOverlay>{draggingCategory && <CategoryDragPreview category={draggingCategory} />}</DragOverlay>
               </DndContext>
 
               {editMode && <AddCategory onAdd={s.addCategory} />}
