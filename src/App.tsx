@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSchedule } from './hooks/useSchedule';
 import type { Category, ScheduleItem } from './types';
 import { isItemDone, isItemScheduledOn } from './types';
 import { friendlyDate, todayDayIndex, todayKey } from './lib/date';
+import { colorStyles } from './lib/colors';
 import { CategorySection } from './components/CategorySection';
 import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
@@ -11,6 +12,7 @@ import { PinPrompt } from './components/PinPrompt';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { UndoToast } from './components/UndoToast';
 import { RevertButton } from './components/RevertButton';
+import { FocusComplete, FocusView } from './components/FocusView';
 import { useEditRevert } from './hooks/useEditRevert';
 
 const UNDO_MS = 6000;
@@ -23,11 +25,18 @@ function App() {
   const s = useSchedule();
   const [editMode, setEditMode] = useState(false);
   const [view, setView] = useState<'today' | 'week'>('today');
+  const [focusMode, setFocusMode] = useState(false);
   const [pinPromptOpen, setPinPromptOpen] = useState(false);
   const [newPinDraft, setNewPinDraft] = useState('');
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revert = useEditRevert(editMode);
+
+  // Focus mode is a view-mode-only way of looking at today's items, not a
+  // structural editing tool — entering edit mode always drops out of it.
+  useEffect(() => {
+    if (editMode) setFocusMode(false);
+  }, [editMode]);
 
   // Deletes are immediate (same as everywhere else in the app — no
   // confirmation dialog), but a delete is the one place an accidental tap
@@ -104,6 +113,21 @@ function App() {
   const percent = totalCount === 0 ? 0 : (doneCount / totalCount) * 100;
   const allDone = totalCount > 0 && doneCount === totalCount;
 
+  // "Next" is derived fresh every render from category/item order (the same
+  // order edit mode's drag-and-drop already controls) and current
+  // completion state — nothing about focus position is ever stored, so
+  // leaving and returning to focus mode can't get out of sync.
+  let focusTarget: { category: Category; item: ScheduleItem } | null = null;
+  for (const category of data.categories) {
+    const next = category.items.find(
+      (it) => isItemScheduledOn(it, todayDateKey, today) && !it.skipped && !isItemDone(it),
+    );
+    if (next) {
+      focusTarget = { category, item: next };
+      break;
+    }
+  }
+
   return (
     <div className="min-h-svh bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
       {pinPromptOpen && (
@@ -149,19 +173,34 @@ function App() {
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               <SaveStatusIndicator status={s.saveStatus} onRetry={s.retrySave} />
-              {view === 'today' && (
-                <button
-                  type="button"
-                  onClick={handleEditClick}
-                  className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium ${
-                    editMode
-                      ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                      : 'bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/60'
-                  }`}
-                >
-                  {editMode ? 'Done editing' : '⚙️ Edit'}
-                </button>
-              )}
+              <div className="flex shrink-0 gap-1.5">
+                {view === 'today' && !editMode && totalCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFocusMode((f) => !f)}
+                    className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium ${
+                      focusMode
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                        : 'bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/60'
+                    }`}
+                  >
+                    {focusMode ? '📋 Full list' : '🎯 Focus'}
+                  </button>
+                )}
+                {view === 'today' && (
+                  <button
+                    type="button"
+                    onClick={handleEditClick}
+                    className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium ${
+                      editMode
+                        ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                        : 'bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/60'
+                    }`}
+                  >
+                    {editMode ? 'Done editing' : '⚙️ Edit'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -184,7 +223,7 @@ function App() {
             ))}
           </div>
 
-          {view === 'today' && totalCount > 0 && (
+          {view === 'today' && totalCount > 0 && !focusMode && (
             <div className="rounded-2xl bg-white dark:bg-neutral-900 border border-black/10 dark:border-white/10 p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium">Today's progress</span>
@@ -207,6 +246,21 @@ function App() {
             <div className="lg:mx-auto lg:max-w-xl">
               <WeekView categories={data.categories} todayIndex={today} />
             </div>
+          ) : focusMode ? (
+            focusTarget ? (
+              <FocusView
+                category={focusTarget.category}
+                item={focusTarget.item}
+                color={colorStyles[focusTarget.category.color]}
+                doneCount={doneCount}
+                totalCount={totalCount}
+                toggleItem={s.toggleItem}
+                toggleSubStep={s.toggleSubStep}
+                onExit={() => setFocusMode(false)}
+              />
+            ) : (
+              <FocusComplete onExit={() => setFocusMode(false)} />
+            )
           ) : (
             <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-x-10 xl:grid-cols-3">
               {data.categories.map((category) => (

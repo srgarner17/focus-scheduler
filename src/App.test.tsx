@@ -137,3 +137,64 @@ describe('App undo-for-deletes', () => {
     expect(screen.queryByDisplayValue('Morning Routine')).not.toBeInTheDocument();
   });
 });
+
+describe("App 'What's next' focus view", () => {
+  it('shows the first not-done item in category/item order, and completing it advances to the next one', async () => {
+    await mountApp();
+
+    fireEvent.click(screen.getByRole('button', { name: '🎯 Focus' }));
+    // Morning Routine's first item, nothing done yet.
+    expect(screen.getByText('Make Your Bed')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark done' }));
+    expect(screen.queryByText('Make Your Bed')).not.toBeInTheDocument();
+    expect(screen.getByText('Brush Teeth')).toBeInTheDocument();
+  });
+
+  it('does not advance while only some of a multi-step item is done', async () => {
+    await mountApp();
+
+    fireEvent.click(screen.getByRole('button', { name: '🎯 Focus' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark step done' })[0]);
+
+    // Still the same item — completing one of three sub-steps isn't enough.
+    expect(screen.getByText('Make Your Bed')).toBeInTheDocument();
+  });
+
+  it('"See full list" swaps back to the category grid', async () => {
+    await mountApp();
+
+    fireEvent.click(screen.getByRole('button', { name: '🎯 Focus' }));
+    fireEvent.click(screen.getByRole('button', { name: 'See full list' }));
+
+    expect(screen.getByText("Today's progress")).toBeInTheDocument();
+    expect(screen.getByText('Chores')).toBeInTheDocument();
+  });
+
+  it('entering edit mode drops out of focus mode', async () => {
+    await mountApp();
+
+    fireEvent.click(screen.getByRole('button', { name: '🎯 Focus' }));
+    expect(screen.getByText('Make Your Bed')).toBeInTheDocument();
+
+    // Default schedule has no PIN set, so Edit engages immediately.
+    fireEvent.click(screen.getByRole('button', { name: '⚙️ Edit' }));
+
+    expect(screen.queryByRole('button', { name: '🎯 Focus' })).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue('Make Your Bed')).toBeInTheDocument();
+  });
+
+  it('shows a completion screen once every scheduled item is done', async () => {
+    await mountApp();
+
+    for (const button of screen.getAllByRole('button', { name: 'Mark done' })) {
+      fireEvent.click(button);
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: '🎯 Focus' }));
+    expect(screen.getByText('🎉 Everything done — great focus today!')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'See full list' }));
+    expect(screen.getByText("Today's progress")).toBeInTheDocument();
+  });
+});
