@@ -14,6 +14,7 @@ import type { Category, ScheduleItem } from './types';
 import { isItemDone, isItemScheduledOn } from './types';
 import { friendlyDate, todayDayIndex, todayKey } from './lib/date';
 import { colorStyles } from './lib/colors';
+import { buildFocusSequence } from './lib/focusOrder';
 import { SortableCategorySection } from './components/SortableCategorySection';
 import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
@@ -23,6 +24,7 @@ import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { UndoToast } from './components/UndoToast';
 import { RevertButton } from './components/RevertButton';
 import { FocusComplete, FocusView } from './components/FocusView';
+import { FocusOrderEditor } from './components/FocusOrderEditor';
 import { useEditRevert } from './hooks/useEditRevert';
 
 const UNDO_MS = 6000;
@@ -36,6 +38,7 @@ function App() {
   const [editMode, setEditMode] = useState(false);
   const [view, setView] = useState<'today' | 'week'>('today');
   const [focusMode, setFocusMode] = useState(false);
+  const [focusOrderEditorOpen, setFocusOrderEditorOpen] = useState(false);
   const [pinPromptOpen, setPinPromptOpen] = useState(false);
   const [newPinDraft, setNewPinDraft] = useState('');
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
@@ -139,20 +142,16 @@ function App() {
   const percent = totalCount === 0 ? 0 : (doneCount / totalCount) * 100;
   const allDone = totalCount > 0 && doneCount === totalCount;
 
-  // "Next" is derived fresh every render from category/item order (the same
-  // order edit mode's drag-and-drop already controls) and current
-  // completion state — nothing about focus position is ever stored, so
-  // leaving and returning to focus mode can't get out of sync.
-  let focusTarget: { category: Category; item: ScheduleItem } | null = null;
-  for (const category of data.categories) {
-    const next = category.items.find(
-      (it) => isItemScheduledOn(it, todayDateKey, today) && !it.skipped && !isItemDone(it),
-    );
-    if (next) {
-      focusTarget = { category, item: next };
-      break;
-    }
-  }
+  // "Next" is derived fresh every render — walk data.focusOrder (if a
+  // parent has set one via the "Reorder focus" editor; falls back to plain
+  // category/item order otherwise, see buildFocusSequence) and take the
+  // first item that's scheduled today, not skipped, and not done. No
+  // completion "position" is ever stored, so leaving and returning to focus
+  // mode can't get out of sync.
+  const focusTarget =
+    buildFocusSequence(data).find(
+      ({ item }) => isItemScheduledOn(item, todayDateKey, today) && !item.skipped && !isItemDone(item),
+    ) ?? null;
 
   return (
     <div className="min-h-svh bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
@@ -164,6 +163,13 @@ function App() {
             setEditMode(true);
           }}
           onCancel={() => setPinPromptOpen(false)}
+        />
+      )}
+      {focusOrderEditorOpen && (
+        <FocusOrderEditor
+          data={data}
+          reorderFocusOrder={s.reorderFocusOrder}
+          onClose={() => setFocusOrderEditorOpen(false)}
         />
       )}
       <div className="mx-auto max-w-xl px-4 pb-24 pt-6 sm:pt-10 lg:max-w-5xl xl:max-w-6xl">
@@ -331,6 +337,19 @@ function App() {
 
         {view === 'today' && editMode && (
           <div className="mt-8 space-y-4 border-t border-black/10 dark:border-white/10 pt-4 lg:mx-auto lg:max-w-xl">
+            <div>
+              <button
+                type="button"
+                onClick={() => setFocusOrderEditorOpen(true)}
+                className="rounded-lg bg-black/5 dark:bg-white/10 px-3 py-1.5 text-sm font-medium"
+              >
+                Reorder focus flow
+              </button>
+              <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+                Set the order "What's next" walks through, independent of the category order above.
+              </p>
+            </div>
+
             <div>
               <p className="mb-1 text-sm font-medium">Parent PIN</p>
               {data.editPin ? (

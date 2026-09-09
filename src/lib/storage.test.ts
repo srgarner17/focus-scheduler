@@ -16,6 +16,7 @@ function baseData(overrides: Partial<ScheduleData> = {}): ScheduleData {
     lastResetDate: '2026-08-24',
     editPin: '',
     categories: [],
+    focusOrder: [],
     ...overrides,
   };
 }
@@ -31,6 +32,18 @@ describe('normalize', () => {
   it('leaves an existing editPin untouched', () => {
     const data = baseData({ editPin: '1234' });
     expect(normalize(data).editPin).toBe('1234');
+  });
+
+  it('fills in a missing focusOrder with an empty array', () => {
+    const data = baseData();
+    // @ts-expect-error simulating old data saved before focusOrder existed
+    delete data.focusOrder;
+    expect(normalize(data).focusOrder).toEqual([]);
+  });
+
+  it('leaves an existing focusOrder untouched', () => {
+    const data = baseData({ focusOrder: ['i2', 'i1'] });
+    expect(normalize(data).focusOrder).toEqual(['i2', 'i1']);
   });
 
   it('backfills missing item.days with every day', () => {

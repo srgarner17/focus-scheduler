@@ -198,3 +198,22 @@ describe("App 'What's next' focus view", () => {
     expect(screen.getByText("Today's progress")).toBeInTheDocument();
   });
 });
+
+describe('App focus-order editor', () => {
+  it('opens the "Reorder focus" editor from edit mode, and Done closes it', async () => {
+    await mountApp();
+
+    fireEvent.click(screen.getByRole('button', { name: '⚙️ Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder focus flow' }));
+
+    expect(screen.getByRole('heading', { name: 'Reorder focus' })).toBeInTheDocument();
+    // The full item list appears, flattened across categories.
+    expect(screen.getByText('Make Your Bed')).toBeInTheDocument();
+    expect(screen.getByText('Feed the Dog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByRole('heading', { name: 'Reorder focus' })).not.toBeInTheDocument();
+    // Back to the normal edit-mode grid underneath.
+    expect(screen.getByDisplayValue('Make Your Bed')).toBeInTheDocument();
+  });
+});
