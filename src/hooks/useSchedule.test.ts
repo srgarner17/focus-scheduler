@@ -642,6 +642,35 @@ describe('useSchedule', () => {
     ]);
   });
 
+  it('reorderCategories sets the full category order from an ordered id list, immediately', async () => {
+    const { result } = await mountSchedule();
+    const originalOrder = result.current.data!.categories.map((c) => c.id);
+    expect(originalOrder.length).toBeGreaterThanOrEqual(3);
+
+    const reversed = [...originalOrder].reverse();
+    act(() => {
+      result.current.reorderCategories(reversed);
+    });
+    // Same tick — immediate, not debounced, like reorderItems.
+    expect(result.current.data!.categories.map((c) => c.id)).toEqual(reversed);
+    await waitFor(() => expect(getServerDoc()?.categories.map((c) => c.id)).toEqual(reversed));
+  });
+
+  it('reorderCategories appends any category missing from the ordered list, preserving its relative order', async () => {
+    const { result } = await mountSchedule();
+    const originalOrder = result.current.data!.categories.map((c) => c.id);
+    expect(originalOrder.length).toBeGreaterThanOrEqual(3);
+
+    const draggedOrder = [originalOrder[1], originalOrder[0]];
+    act(() => {
+      result.current.reorderCategories(draggedOrder);
+    });
+    expect(result.current.data!.categories.map((c) => c.id)).toEqual([
+      ...draggedOrder,
+      ...originalOrder.slice(2),
+    ]);
+  });
+
   it('restoreCategory re-inserts a deleted category at its original index, fully intact', async () => {
     const { result } = await mountSchedule();
     const categoryToDelete = result.current.data!.categories[1];

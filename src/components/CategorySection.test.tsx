@@ -131,3 +131,57 @@ describe('CategorySection edit-mode item list', () => {
     expect(screen.queryByDisplayValue('Past One-Time')).not.toBeInTheDocument();
   });
 });
+
+// Category drag-and-drop is edit-mode-only, same as item reordering — the
+// handle is a prop rather than a global feature so App can control drag
+// order via reorderCategories.
+describe('CategorySection drag handle', () => {
+  it('renders no drag handle in edit mode unless a dragHandle prop is given', () => {
+    render(<CategorySection category={makeCategory([makeItem()])} {...baseProps} editMode />);
+    expect(screen.queryByRole('button', { name: 'Drag to reorder category' })).not.toBeInTheDocument();
+  });
+
+  it("spreads the dragHandle prop's attributes and listeners onto the drag handle button", () => {
+    const onPointerDown = () => {};
+    render(
+      <CategorySection
+        category={makeCategory([makeItem()])}
+        {...baseProps}
+        editMode
+        dragHandle={{
+          attributes: {
+            role: 'button',
+            tabIndex: 0,
+            'aria-disabled': false,
+            'aria-pressed': undefined,
+            'aria-roledescription': 'sortable',
+            'aria-describedby': 'dnd-desc',
+          },
+          listeners: { onPointerDown },
+        }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Drag to reorder category' })).toBeInTheDocument();
+  });
+
+  it('never renders a drag handle outside edit mode, even if a dragHandle prop is given', () => {
+    render(
+      <CategorySection
+        category={makeCategory([makeItem()])}
+        {...baseProps}
+        dragHandle={{
+          attributes: {
+            role: 'button',
+            tabIndex: 0,
+            'aria-disabled': false,
+            'aria-pressed': undefined,
+            'aria-roledescription': 'sortable',
+            'aria-describedby': 'dnd-desc',
+          },
+          listeners: {},
+        }}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Drag to reorder category' })).not.toBeInTheDocument();
+  });
+});

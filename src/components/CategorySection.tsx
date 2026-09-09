@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import {
   DndContext,
   KeyboardSensor,
@@ -19,10 +20,16 @@ import { ItemCard } from './ItemCard';
 import { SortableItemCard } from './SortableItemCard';
 import { RevertButton } from './RevertButton';
 
+export interface CategoryDragHandleProps {
+  attributes: DraggableAttributes;
+  listeners: DraggableSyntheticListeners;
+}
+
 interface Props {
   category: Category;
   editMode: boolean;
   revert: EditRevertControls;
+  dragHandle?: CategoryDragHandleProps;
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
   toggleSkip: (categoryId: string, itemId: string) => void;
@@ -49,6 +56,7 @@ export function CategorySection({
   category,
   editMode,
   revert,
+  dragHandle,
   toggleItem,
   toggleSubStep,
   toggleSkip,
@@ -176,6 +184,17 @@ export function CategorySection({
               </span>
             </div>
           </div>
+          {dragHandle && (
+            <button
+              type="button"
+              {...dragHandle.attributes}
+              {...dragHandle.listeners}
+              aria-label="Drag to reorder category"
+              className="shrink-0 flex h-9 w-9 touch-none cursor-grab items-center justify-center rounded-full text-lg text-black/40 hover:bg-black/5 active:cursor-grabbing dark:text-white/40 dark:hover:bg-white/10"
+            >
+              ⠿
+            </button>
+          )}
         </div>
 
         <div className="space-y-2">
