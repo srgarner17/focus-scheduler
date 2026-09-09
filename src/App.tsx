@@ -232,6 +232,15 @@ function App() {
                     {focusMode ? '📋 Full list' : '🎯 Focus'}
                   </button>
                 )}
+                {view === 'today' && editMode && (
+                  <button
+                    type="button"
+                    onClick={() => setFocusOrderEditorOpen(true)}
+                    className="shrink-0 rounded-full px-3 py-2 text-sm font-medium bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/60"
+                  >
+                    Reorder focus flow
+                  </button>
+                )}
                 {view === 'today' && (
                   <button
                     type="button"
@@ -357,19 +366,6 @@ function App() {
 
         {view === 'today' && editMode && (
           <div className="mt-8 space-y-4 border-t border-black/10 dark:border-white/10 pt-4 lg:mx-auto lg:max-w-xl">
-            <div>
-              <button
-                type="button"
-                onClick={() => setFocusOrderEditorOpen(true)}
-                className="rounded-lg bg-black/5 dark:bg-white/10 px-3 py-1.5 text-sm font-medium"
-              >
-                Reorder focus flow
-              </button>
-              <p className="mt-1 text-xs text-black/40 dark:text-white/40">
-                Set the order "What's next" walks through, independent of the category order above.
-              </p>
-            </div>
-
             <div>
               <p className="mb-1 text-sm font-medium">Parent PIN</p>
               {data.editPin ? (
