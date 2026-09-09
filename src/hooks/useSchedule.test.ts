@@ -671,6 +671,20 @@ describe('useSchedule', () => {
     ]);
   });
 
+  it('reorderFocusOrder sets data.focusOrder directly, immediately', async () => {
+    const { result } = await mountSchedule();
+    expect(result.current.data!.focusOrder).toEqual([]);
+
+    const allItemIds = result.current.data!.categories.flatMap((c) => c.items.map((it) => it.id));
+    const customOrder = [...allItemIds].reverse();
+    act(() => {
+      result.current.reorderFocusOrder(customOrder);
+    });
+    // Same tick — immediate, not debounced, like reorderCategories/reorderItems.
+    expect(result.current.data!.focusOrder).toEqual(customOrder);
+    await waitFor(() => expect(getServerDoc()?.focusOrder).toEqual(customOrder));
+  });
+
   it('restoreCategory re-inserts a deleted category at its original index, fully intact', async () => {
     const { result } = await mountSchedule();
     const categoryToDelete = result.current.data!.categories[1];

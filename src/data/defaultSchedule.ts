@@ -112,5 +112,6 @@ export function buildDefaultSchedule(): ScheduleData {
     categories,
     lastResetDate: '',
     editPin: '',
+    focusOrder: [],
   };
 }

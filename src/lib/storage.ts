@@ -12,6 +12,7 @@ export function normalize(data: ScheduleData): ScheduleData {
   return {
     ...data,
     editPin: typeof data.editPin === 'string' ? data.editPin : '',
+    focusOrder: Array.isArray(data.focusOrder) ? data.focusOrder : [],
     categories: data.categories.map((cat) => ({
       ...cat,
       items: cat.items.map((it) => ({

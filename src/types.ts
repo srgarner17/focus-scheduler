@@ -31,6 +31,12 @@ export interface ScheduleData {
   categories: Category[];
   lastResetDate: string; // YYYY-MM-DD, local date of last daily reset
   editPin: string; // 4-digit PIN required to enter Edit mode; empty = no lock
+  // Explicit item order for the "What's next" focus view only — independent
+  // of category/item order, which stays what the main Today grid uses. A
+  // flat list of item ids, set by dragging in the "Reorder focus" editor;
+  // items not listed here (new items, or before this has ever been set)
+  // fall back to category/item order, appended after whatever is listed.
+  focusOrder: string[];
 }
 
 export function isItemDone(item: ScheduleItem): boolean {

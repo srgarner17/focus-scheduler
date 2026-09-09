@@ -422,6 +422,15 @@ export function useSchedule() {
     });
   }
 
+  // Sets the explicit, flat, cross-category order the "What's next" focus
+  // view uses (see buildFocusSequence in lib/focusOrder.ts) — independent
+  // of category/item order, which stays untouched for the main Today grid.
+  // The "Reorder focus" editor always shows and drags the full item list,
+  // so orderedIds is expected to cover everything currently scheduled.
+  function reorderFocusOrder(orderedIds: string[]) {
+    mutate((d) => ({ ...d, focusOrder: orderedIds }));
+  }
+
   function addSubStep(categoryId: string, itemId: string, text: string) {
     updateItem(categoryId, itemId, (it) => ({
       ...it,
@@ -482,6 +491,7 @@ export function useSchedule() {
     deleteItem,
     restoreItem,
     reorderItems,
+    reorderFocusOrder,
     addSubStep,
     updateSubStepText,
     deleteSubStep,
