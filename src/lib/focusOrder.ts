@@ -26,3 +26,23 @@ export function buildFocusSequence(data: ScheduleData): FocusEntry[] {
   const remaining = allEntries.filter((entry) => !orderedIdSet.has(entry.item.id));
   return [...ordered, ...remaining];
 }
+
+// The "Reorder focus" editor only shows/drags today's scheduled items (a
+// full-schedule list, including items that only ever run on other
+// weekdays, would just be clutter for a screen about today's flow) — but
+// focusOrder itself still covers every item, so a drag there can't just
+// save the visible subset as the new whole order, or every hidden item
+// would silently fall out of it. This splices the freshly-reordered
+// visible ids back into fullSequence, leaving every other id (an item not
+// scheduled today) exactly where it already was.
+export function mergeVisibleReorder(
+  fullSequence: FocusEntry[],
+  visibleIds: string[],
+  reorderedVisibleIds: string[],
+): string[] {
+  const visibleIdSet = new Set(visibleIds);
+  let cursor = 0;
+  return fullSequence.map((entry) =>
+    visibleIdSet.has(entry.item.id) ? reorderedVisibleIds[cursor++] : entry.item.id,
+  );
+}

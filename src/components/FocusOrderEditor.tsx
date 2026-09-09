@@ -9,7 +9,9 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { ScheduleData } from '../types';
-import { buildFocusSequence } from '../lib/focusOrder';
+import { isItemScheduledOn } from '../types';
+import { todayDayIndex, todayKey } from '../lib/date';
+import { buildFocusSequence, mergeVisibleReorder } from '../lib/focusOrder';
 import { SortableFocusRow } from './SortableFocusRow';
 
 interface Props {
@@ -25,7 +27,18 @@ interface Props {
 // This order affects the "What's next" focus view only; the main Today grid
 // and edit mode's per-category item lists are untouched by it.
 export function FocusOrderEditor({ data, reorderFocusOrder, onClose }: Props) {
-  const sequence = buildFocusSequence(data);
+  const todayDateKey = todayKey();
+  const today = todayDayIndex();
+
+  // Only today's scheduled items are shown/draggable — this screen is about
+  // the flow for the current day, and a full-schedule list (including
+  // items that only ever run on other weekdays) would just be clutter. The
+  // underlying focusOrder still covers every item, though: dragging here
+  // only reshuffles the visible (today's) subset, splicing the result back
+  // into the full order so items not scheduled today keep their existing
+  // relative position instead of getting silently dropped from it.
+  const fullSequence = buildFocusSequence(data);
+  const visibleSequence = fullSequence.filter((entry) => isItemScheduledOn(entry.item, todayDateKey, today));
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -35,11 +48,12 @@ export function FocusOrderEditor({ data, reorderFocusOrder, onClose }: Props) {
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const ids = sequence.map((entry) => entry.item.id);
-    const oldIndex = ids.indexOf(active.id as string);
-    const newIndex = ids.indexOf(over.id as string);
+    const visibleIds = visibleSequence.map((entry) => entry.item.id);
+    const oldIndex = visibleIds.indexOf(active.id as string);
+    const newIndex = visibleIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
-    reorderFocusOrder(arrayMove(ids, oldIndex, newIndex));
+    const reorderedVisibleIds = arrayMove(visibleIds, oldIndex, newIndex);
+    reorderFocusOrder(mergeVisibleReorder(fullSequence, visibleIds, reorderedVisibleIds));
   }
 
   return (
@@ -48,7 +62,7 @@ export function FocusOrderEditor({ data, reorderFocusOrder, onClose }: Props) {
         <div>
           <h2 className="text-lg font-bold">Reorder focus</h2>
           <p className="text-sm text-black/50 dark:text-white/50">
-            Sets the order "What's next" walks through, across every category. Doesn't change the list below.
+            Sets the order "What's next" walks through today, across every category. Doesn't change the list below.
           </p>
         </div>
         <button
@@ -61,14 +75,16 @@ export function FocusOrderEditor({ data, reorderFocusOrder, onClose }: Props) {
       </div>
       <div className="mx-auto w-full max-w-xl flex-1 space-y-2 overflow-y-auto p-4">
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={sequence.map((entry) => entry.item.id)} strategy={verticalListSortingStrategy}>
-            {sequence.map((entry) => (
+          <SortableContext items={visibleSequence.map((entry) => entry.item.id)} strategy={verticalListSortingStrategy}>
+            {visibleSequence.map((entry) => (
               <SortableFocusRow key={entry.item.id} {...entry} />
             ))}
           </SortableContext>
         </DndContext>
-        {sequence.length === 0 && (
-          <p className="text-center text-sm text-black/40 dark:text-white/40">No items yet.</p>
+        {visibleSequence.length === 0 && (
+          <p className="text-center text-sm text-black/40 dark:text-white/40">
+            {fullSequence.length === 0 ? 'No items yet.' : 'Nothing scheduled today.'}
+          </p>
         )}
       </div>
     </div>
