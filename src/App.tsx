@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useSchedule } from './hooks/useSchedule';
 import type { Category, ScheduleItem } from './types';
 import { isItemDone, isItemScheduledOn } from './types';
 import { friendlyDate, todayDayIndex, todayKey } from './lib/date';
 import { colorStyles } from './lib/colors';
-import { CategorySection } from './components/CategorySection';
+import { SortableCategorySection } from './components/SortableCategorySection';
 import { AddCategory } from './components/AddCategory';
 import { ProgressBar } from './components/ProgressBar';
 import { WeekView } from './components/WeekView';
@@ -37,6 +47,22 @@ function App() {
   useEffect(() => {
     if (editMode) setFocusMode(false);
   }, [editMode]);
+
+  const categorySensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleCategoryDragEnd(event: DragEndEvent) {
+    if (!s.data) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const categories = s.data.categories;
+    const oldIndex = categories.findIndex((c) => c.id === active.id);
+    const newIndex = categories.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    s.reorderCategories(arrayMove(categories, oldIndex, newIndex).map((c) => c.id));
+  }
 
   // Deletes are immediate (same as everywhere else in the app — no
   // confirmation dialog), but a delete is the one place an accidental tap
@@ -263,30 +289,34 @@ function App() {
             )
           ) : (
             <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-x-10 xl:grid-cols-3">
-              {data.categories.map((category) => (
-                <CategorySection
-                  key={category.id}
-                  category={category}
-                  editMode={editMode}
-                  revert={revert}
-                  toggleItem={s.toggleItem}
-                  toggleSubStep={s.toggleSubStep}
-                  toggleSkip={s.toggleSkip}
-                  updateCategoryMeta={s.updateCategoryMeta}
-                  updateCategoryName={s.updateCategoryName}
-                  deleteCategory={handleDeleteCategory}
-                  addItem={s.addItem}
-                  updateItemMeta={s.updateItemMeta}
-                  updateItemTitle={s.updateItemTitle}
-                  updateItemNotes={s.updateItemNotes}
-                  deleteItem={handleDeleteItem}
-                  reorderItems={s.reorderItems}
-                  addSubStep={s.addSubStep}
-                  updateSubStepText={s.updateSubStepText}
-                  deleteSubStep={s.deleteSubStep}
-                  reorderSubStep={s.reorderSubStep}
-                />
-              ))}
+              <DndContext sensors={categorySensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+                <SortableContext items={data.categories.map((c) => c.id)} strategy={rectSortingStrategy}>
+                  {data.categories.map((category) => (
+                    <SortableCategorySection
+                      key={category.id}
+                      category={category}
+                      editMode={editMode}
+                      revert={revert}
+                      toggleItem={s.toggleItem}
+                      toggleSubStep={s.toggleSubStep}
+                      toggleSkip={s.toggleSkip}
+                      updateCategoryMeta={s.updateCategoryMeta}
+                      updateCategoryName={s.updateCategoryName}
+                      deleteCategory={handleDeleteCategory}
+                      addItem={s.addItem}
+                      updateItemMeta={s.updateItemMeta}
+                      updateItemTitle={s.updateItemTitle}
+                      updateItemNotes={s.updateItemNotes}
+                      deleteItem={handleDeleteItem}
+                      reorderItems={s.reorderItems}
+                      addSubStep={s.addSubStep}
+                      updateSubStepText={s.updateSubStepText}
+                      deleteSubStep={s.deleteSubStep}
+                      reorderSubStep={s.reorderSubStep}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
 
               {editMode && <AddCategory onAdd={s.addCategory} />}
 

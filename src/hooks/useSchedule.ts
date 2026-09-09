@@ -326,6 +326,20 @@ export function useSchedule() {
     }));
   }
 
+  // Sets the category order directly from a dragged sequence of ids — same
+  // shape as reorderItems, just one level up. Every category is always
+  // draggable (unlike items, there's no hidden/filtered subset to worry
+  // about), so orderedIds is expected to cover the full list.
+  function reorderCategories(orderedIds: string[]) {
+    mutate((d) => {
+      const byId = new Map(d.categories.map((c) => [c.id, c]));
+      const reordered = orderedIds.map((id) => byId.get(id)).filter((c): c is Category => c !== undefined);
+      const orderedIdSet = new Set(orderedIds);
+      const remaining = d.categories.filter((c) => !orderedIdSet.has(c.id));
+      return { ...d, categories: [...reordered, ...remaining] };
+    });
+  }
+
   function deleteCategory(categoryId: string) {
     mutate((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== categoryId) }));
   }
@@ -458,6 +472,7 @@ export function useSchedule() {
     addCategory,
     updateCategoryMeta,
     updateCategoryName,
+    reorderCategories,
     deleteCategory,
     restoreCategory,
     addItem,
