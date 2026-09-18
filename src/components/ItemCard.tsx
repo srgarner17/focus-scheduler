@@ -279,14 +279,14 @@ export function ItemCard({
             )
           )}
 
-          <ul className="space-y-1.5">
+          <ul className="space-y-2.5">
             {item.subSteps.map((s, index) => (
               <li key={s.id} className="flex items-center gap-2">
                 <button
                   type="button"
                   aria-label={s.done ? 'Mark step not done' : 'Mark step done'}
                   onClick={() => toggleSubStep(categoryId, item.id, s.id)}
-                  className={`shrink-0 flex items-center justify-center h-6 w-6 rounded-full border-2 text-sm active:scale-90 ${
+                  className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-full border-2 text-base active:scale-90 ${
                     editMode
                       ? s.done
                         ? `${color.chip} border-transparent text-white`
