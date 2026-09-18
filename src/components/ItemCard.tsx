@@ -119,24 +119,26 @@ export function ItemCard({
                 onClick={(e) => e.stopPropagation()}
                 className="w-11 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 text-center text-lg"
               />
-              <input
-                value={item.title}
-                onChange={(e) => {
-                  revert.capture(titleKey, item.title);
-                  updateItemTitle(categoryId, item.id, e.target.value);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="min-w-[8rem] flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-semibold"
-                placeholder="Item title"
-              />
-              {revert.isDirty(titleKey, item.title) && (
-                <RevertButton
-                  onRevert={() => {
-                    const original = revert.revert(titleKey);
-                    if (original !== undefined) updateItemTitle(categoryId, item.id, original);
+              <div className="flex min-w-[8rem] flex-1 items-center gap-1">
+                <input
+                  value={item.title}
+                  onChange={(e) => {
+                    revert.capture(titleKey, item.title);
+                    updateItemTitle(categoryId, item.id, e.target.value);
                   }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="min-w-0 flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-2 py-1 font-semibold"
+                  placeholder="Item title"
                 />
-              )}
+                {revert.isDirty(titleKey, item.title) && (
+                  <RevertButton
+                    onRevert={() => {
+                      const original = revert.revert(titleKey);
+                      if (original !== undefined) updateItemTitle(categoryId, item.id, original);
+                    }}
+                  />
+                )}
+              </div>
               {isOneTime ? (
                 <span className="text-xs text-black/40 dark:text-white/40">
                   one-time · {formatDateShort(item.date)}
