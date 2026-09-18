@@ -81,7 +81,7 @@ export function ItemCard({
           : ''
       } ${editMode && !activeToday ? 'opacity-50' : ''}`}
     >
-      <div className="flex items-center gap-3 p-3 sm:p-4">
+      <div className="flex items-start gap-3 p-3 sm:p-4">
         <button
           type="button"
           aria-label={done ? 'Mark not done' : 'Mark done'}
