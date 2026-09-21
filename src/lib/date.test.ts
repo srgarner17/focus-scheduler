@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { currentWeekDateKeys, dateKeyFor, formatDateShort, todayDayIndex, todayKey } from './date';
+import { currentWeekDateKeys, dateKeyFor, dayIndexFor, formatDateShort, todayDayIndex, todayKey } from './date';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -73,5 +73,22 @@ describe('formatDateShort', () => {
     const result = formatDateShort('2026-01-05');
     expect(result).toContain('5');
     expect(result).toMatch(/Jan/);
+  });
+});
+
+describe('currentWeekDateKeys with a week offset', () => {
+  it('shifts back and forward whole weeks, across month boundaries', () => {
+    vi.setSystemTime(new Date(2026, 8, 2, 12, 0)); // Wed 2026-09-02; that week starts Sun 08-30
+    expect(currentWeekDateKeys(-1)[0]).toBe('2026-08-23');
+    expect(currentWeekDateKeys(-1)[6]).toBe('2026-08-29');
+    expect(currentWeekDateKeys(1)[0]).toBe('2026-09-06');
+    expect(currentWeekDateKeys(0)[0]).toBe('2026-08-30');
+  });
+});
+
+describe('dayIndexFor', () => {
+  it('returns the local weekday for a YYYY-MM-DD key', () => {
+    expect(dayIndexFor('2026-08-25')).toBe(2); // Tuesday
+    expect(dayIndexFor('2026-08-30')).toBe(0); // Sunday
   });
 });

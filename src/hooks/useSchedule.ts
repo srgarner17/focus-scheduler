@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { onSnapshot, runTransaction } from 'firebase/firestore';
 import type { Category, CategoryColor, ScheduleData, ScheduleItem } from '../types';
 import { ALL_DAYS } from '../types';
-import { normalize, resetCompletion, scheduleDocRef } from '../lib/storage';
+import { historyDocRef, normalize, resetCompletion, scheduleDocRef } from '../lib/storage';
+import { buildHistorySnapshot } from '../lib/history';
 import { buildDefaultSchedule } from '../data/defaultSchedule';
 import { db, ensureSignedIn } from '../lib/firebase';
 import { todayKey } from '../lib/date';
@@ -22,8 +23,47 @@ async function transactionalUpdate(fn: (d: ScheduleData) => ScheduleData): Promi
   });
 }
 
+// The nightly reset. Right before wiping completion state, it also freezes
+// the day that's ending into history/<lastResetDate> in the SAME transaction,
+// so the snapshot and the wipe commit together or not at all. Only the first
+// device to notice a stale lastResetDate does any of this — the transaction's
+// fresh read means every other device just sees today's date and no-ops, so
+// there's no cross-device coordination to build. lastResetDate is the last
+// day completion state was actually accumulated for (a device closed for a
+// few days skips the gap days, which simply have no record).
+//
+// The history write can be refused (Firestore rules live in the Firebase
+// console, not this repo, and a new collection has to be allowed there
+// separately). A refused write inside a transaction fails the WHOLE
+// transaction, which would silently stop the daily reset — so on
+// permission-denied, redo the reset without the history write. Losing a
+// day's record is far better than yesterday's checkmarks never clearing.
+async function resetTransaction(recordHistory: boolean): Promise<void> {
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(scheduleDocRef);
+    const serverData = snap.exists() ? normalize(snap.data() as ScheduleData) : buildDefaultSchedule();
+    if (serverData.lastResetDate === todayKey()) {
+      transaction.set(scheduleDocRef, serverData);
+      return;
+    }
+    if (recordHistory && serverData.lastResetDate) {
+      transaction.set(
+        historyDocRef(serverData.lastResetDate),
+        buildHistorySnapshot(serverData, serverData.lastResetDate),
+      );
+    }
+    transaction.set(scheduleDocRef, resetCompletion(serverData));
+  });
+}
+
 async function resetIfStale(): Promise<void> {
-  await transactionalUpdate((d) => (d.lastResetDate !== todayKey() ? resetCompletion(d) : d));
+  try {
+    await resetTransaction(true);
+  } catch (err) {
+    if ((err as { code?: string }).code !== 'permission-denied') throw err;
+    console.warn('Could not record history (check the Firestore rules for the history collection); resetting without it.');
+    await resetTransaction(false);
+  }
 }
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';

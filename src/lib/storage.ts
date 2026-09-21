@@ -40,3 +40,10 @@ export function resetCompletion(data: ScheduleData): ScheduleData {
     })),
   };
 }
+
+// One immutable document per past date, in its own collection so the live
+// schedule's always-on listener never has to download history.
+export function historyDocRef(dateKey: string) {
+  return doc(db, 'history', dateKey);
+}
+

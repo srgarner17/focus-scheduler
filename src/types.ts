@@ -74,3 +74,28 @@ export const DAY_NAMES = [
   'Friday',
   'Saturday',
 ];
+
+// A frozen, self-contained record of one past day, written to the `history`
+// collection (one doc per YYYY-MM-DD) right before that day's completion
+// state is wiped. Deliberately copies names/emoji/colors rather than
+// referencing live ids, so it stays meaningful after items get renamed or
+// deleted.
+export interface HistoryItem {
+  title: string;
+  emoji: string;
+  done: boolean;
+  skipped: boolean;
+  subSteps: { text: string; done: boolean }[];
+}
+
+export interface HistoryCategory {
+  name: string;
+  emoji: string;
+  color: CategoryColor;
+  items: HistoryItem[];
+}
+
+export interface HistoryDay {
+  date: string; // YYYY-MM-DD
+  categories: HistoryCategory[];
+}

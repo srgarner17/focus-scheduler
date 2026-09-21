@@ -16,15 +16,22 @@ export function todayDayIndex(): number {
 // The YYYY-MM-DD date for each day of the current week (Sun..Sat), so
 // one-time items can be matched against the actual calendar date shown in
 // each of the week view's 7 slots, not just an abstract weekday.
-export function currentWeekDateKeys(): string[] {
+export function currentWeekDateKeys(weekOffset = 0): string[] {
   const today = new Date();
   const sunday = new Date(today);
-  sunday.setDate(today.getDate() - today.getDay());
+  sunday.setDate(today.getDate() - today.getDay() + weekOffset * 7);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(sunday);
     d.setDate(sunday.getDate() + i);
     return dateKeyFor(d);
   });
+}
+
+// Weekday (0=Sun..6=Sat) for a YYYY-MM-DD key, parsed as local time (see
+// formatDateShort for why not new Date("YYYY-MM-DD")).
+export function dayIndexFor(dateKey: string): number {
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return new Date(y, m - 1, d).getDay();
 }
 
 export function formatDateShort(dateKey: string): string {
