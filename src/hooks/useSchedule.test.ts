@@ -1,18 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ScheduleData } from '../types';
+import type { HistoryDay, ScheduleData } from '../types';
 
 // useSchedule.ts (and the storage.ts it depends on) talk to Firestore
 // directly. Rather than run the Firebase Local Emulator Suite, stub the SDK
 // with a small in-memory "server document" so these tests exercise our own
 // logic (optimistic updates, the write queue, the reset check) without a
 // real network or persistence layer.
-const { onSnapshotMock, runTransactionMock, setServerDoc, getServerDoc, fireSnapshot, failNextTransactions } =
-  vi.hoisted(() => {
+const {
+  onSnapshotMock,
+  runTransactionMock,
+  setServerDoc,
+  getServerDoc,
+  getHistoryDoc,
+  clearHistoryDocs,
+  denyHistoryWrites,
+  fireSnapshot,
+  failNextTransactions,
+} = vi.hoisted(() => {
     let serverDoc: ScheduleData | undefined;
+    const historyDocs = new Map<string, unknown>();
     let snapshotCallback: ((snap: { exists: () => boolean; data: () => ScheduleData | undefined }) => void) | null =
       null;
     let failCount = 0;
+    let historyWritesDenied = false;
 
     function currentSnap() {
       return { exists: () => serverDoc !== undefined, data: () => serverDoc };
@@ -25,8 +36,13 @@ const { onSnapshotMock, runTransactionMock, setServerDoc, getServerDoc, fireSnap
       }
       const transaction = {
         get: vi.fn(async () => currentSnap()),
-        set: vi.fn((_ref: unknown, data: ScheduleData) => {
-          serverDoc = data;
+        set: vi.fn((ref: { path: string }, data: unknown) => {
+          if (ref.path.startsWith('history/')) {
+            if (historyWritesDenied) throw Object.assign(new Error('denied'), { code: 'permission-denied' });
+            historyDocs.set(ref.path.slice('history/'.length), data);
+          } else {
+            serverDoc = data as ScheduleData;
+          }
         }),
       };
       await updateFn(transaction);
@@ -47,6 +63,11 @@ const { onSnapshotMock, runTransactionMock, setServerDoc, getServerDoc, fireSnap
         serverDoc = d;
       },
       getServerDoc: () => serverDoc,
+      getHistoryDoc: (date: string) => historyDocs.get(date),
+      clearHistoryDocs: () => historyDocs.clear(),
+      denyHistoryWrites: (denied: boolean) => {
+        historyWritesDenied = denied;
+      },
       fireSnapshot: () => snapshotCallback?.(currentSnap()),
       failNextTransactions: (n = 1) => {
         failCount = n;
@@ -55,7 +76,7 @@ const { onSnapshotMock, runTransactionMock, setServerDoc, getServerDoc, fireSnap
   });
 
 vi.mock('firebase/firestore', () => ({
-  doc: vi.fn(() => ({})),
+  doc: vi.fn((_db: unknown, ...segments: string[]) => ({ path: segments.join('/') })),
   onSnapshot: onSnapshotMock,
   runTransaction: runTransactionMock,
 }));
@@ -69,6 +90,8 @@ const { useSchedule } = await import('./useSchedule');
 
 beforeEach(() => {
   setServerDoc(undefined);
+  clearHistoryDocs();
+  denyHistoryWrites(false);
   onSnapshotMock.mockClear();
   runTransactionMock.mockClear();
   failNextTransactions(0);
@@ -129,6 +152,73 @@ describe('useSchedule', () => {
     await waitFor(() =>
       expect(result.current.data!.categories[0].items[0].subSteps.every((s) => s.done)).toBe(false),
     );
+  });
+
+  it('freezes the ending day into history/<date> in the same reset that wipes completion', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 24, 9, 0));
+
+    const { result } = await mountSchedule();
+    // First-ever load: lastResetDate was empty, so there's no ending day to record.
+    expect(getHistoryDoc('2026-08-24')).toBeUndefined();
+
+    const category = result.current.data!.categories[0];
+    act(() => {
+      result.current.toggleItem(category.id, category.items[0].id);
+    });
+    await waitFor(() => expect(getServerDoc()?.categories[0].items[0].subSteps.every((s) => s.done)).toBe(true));
+
+    vi.setSystemTime(new Date(2026, 7, 25, 8, 0));
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(getServerDoc()?.lastResetDate).toBe('2026-08-25'));
+
+    const snapshot = getHistoryDoc('2026-08-24') as HistoryDay;
+    expect(snapshot.date).toBe('2026-08-24');
+    // The item completed that day is recorded as done, even though the live
+    // document has just been wiped.
+    expect(snapshot.categories[0].items[0].done).toBe(true);
+    expect(snapshot.categories[0].items[0].title).toBe(category.items[0].title);
+    expect(getServerDoc()?.categories[0].items[0].subSteps.every((s) => !s.done)).toBe(true);
+    // Only the ending day gets a record — not the new one.
+    expect(getHistoryDoc('2026-08-25')).toBeUndefined();
+  });
+
+  it('still resets the day if the history write is refused (rules not updated) — history must never block the reset', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 24, 9, 0));
+
+    const { result } = await mountSchedule();
+    const category = result.current.data!.categories[0];
+    act(() => {
+      result.current.toggleItem(category.id, category.items[0].id);
+    });
+    await waitFor(() => expect(getServerDoc()?.categories[0].items[0].subSteps.every((s) => s.done)).toBe(true));
+
+    denyHistoryWrites(true);
+    vi.setSystemTime(new Date(2026, 7, 25, 8, 0));
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(getServerDoc()?.lastResetDate).toBe('2026-08-25'));
+    expect(getServerDoc()?.categories[0].items[0].subSteps.every((s) => !s.done)).toBe(true);
+    expect(getHistoryDoc('2026-08-24')).toBeUndefined();
+  });
+
+  it('does not write history when the reset check runs again the same day', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 24, 9, 0));
+    await mountSchedule();
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+    });
+    expect(getHistoryDoc('2026-08-24')).toBeUndefined();
   });
 
   it('toggleItem flips every sub-step together for an item that has them', async () => {
