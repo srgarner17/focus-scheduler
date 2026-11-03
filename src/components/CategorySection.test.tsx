@@ -20,6 +20,8 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     subSteps: [],
     done: false,
     skipped: false,
+    requiresSignOff: false,
+    signedOff: false,
     days: ALL_DAYS,
     date: '',
     ...overrides,
@@ -51,6 +53,7 @@ const baseProps = {
   deleteCategory: noop,
   addItem: noop,
   updateItemMeta: noop,
+  onReviewSignOff: noop,
   updateItemTitle: noop,
   updateItemNotes: noop,
   deleteItem: noop,
@@ -183,5 +186,29 @@ describe('CategorySection drag handle', () => {
       />,
     );
     expect(screen.queryByRole('button', { name: 'Drag to reorder category' })).not.toBeInTheDocument();
+  });
+});
+
+describe('CategorySection and parent sign-off', () => {
+  it('does not count a checked-off item that still needs approval as done, and does not auto-collapse', () => {
+    render(
+      <CategorySection
+        category={makeCategory([makeItem({ title: 'Needs a check', done: true, requiresSignOff: true })])}
+        {...baseProps}
+      />,
+    );
+    expect(screen.getByText('0/1')).toBeInTheDocument();
+    expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Needs a check')).toBeInTheDocument();
+  });
+
+  it('counts it and collapses once a parent has signed it off', () => {
+    render(
+      <CategorySection
+        category={makeCategory([makeItem({ done: true, requiresSignOff: true, signedOff: true })])}
+        {...baseProps}
+      />,
+    );
+    expect(screen.getByText(/all done/i)).toBeInTheDocument();
   });
 });

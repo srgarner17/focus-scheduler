@@ -24,6 +24,8 @@ const categories: Category[] = [
         subSteps: [],
         done: false,
         skipped: false,
+        requiresSignOff: false,
+        signedOff: false,
         days: ALL_DAYS,
         date: '',
       },
@@ -104,5 +106,50 @@ describe('WeekView history', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next week' }));
     expect(useHistoryDayMock).toHaveBeenLastCalledWith(null);
     expect(screen.getByText('Live Item')).toBeInTheDocument();
+  });
+});
+
+describe('WeekView history and parent sign-off', () => {
+  it('shows a checked-off item that was never approved as its own state, and does not count it as done', () => {
+    useHistoryDayMock.mockReturnValue({
+      status: 'ready',
+      day: {
+        date: '2026-08-24',
+        categories: [
+          {
+            name: 'Chores',
+            emoji: '🧹',
+            color: 'green',
+            items: [
+              {
+                title: 'Approved Thing',
+                emoji: '✅',
+                done: true,
+                skipped: false,
+                requiresSignOff: true,
+                signedOff: true,
+                subSteps: [],
+              },
+              {
+                title: 'Unchecked By A Parent',
+                emoji: '✅',
+                done: true,
+                skipped: false,
+                requiresSignOff: true,
+                signedOff: false,
+                subSteps: [],
+              },
+            ],
+          },
+        ],
+      },
+    } satisfies HistoryState);
+    render(<WeekView categories={categories} todayIndex={3} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Monday' }));
+
+    expect(screen.getByText('Never approved')).toBeInTheDocument();
+    expect(screen.getByLabelText('Checked off, never approved')).toBeInTheDocument();
+    expect(screen.getByLabelText('Done')).toBeInTheDocument();
+    expect(screen.getByText('1/2 done')).toBeInTheDocument();
   });
 });

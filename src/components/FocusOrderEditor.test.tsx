@@ -14,6 +14,8 @@ function makeItem(id: string, title: string, days: number[] = ALL_DAYS) {
     subSteps: [],
     done: false,
     skipped: false,
+    requiresSignOff: false,
+    signedOff: false,
     days,
     date: '',
   };

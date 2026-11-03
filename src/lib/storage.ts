@@ -20,6 +20,8 @@ export function normalize(data: ScheduleData): ScheduleData {
         days: Array.isArray(it.days) ? it.days : ALL_DAYS,
         date: typeof it.date === 'string' ? it.date : '',
         skipped: typeof it.skipped === 'boolean' ? it.skipped : false,
+        requiresSignOff: typeof it.requiresSignOff === 'boolean' ? it.requiresSignOff : false,
+        signedOff: typeof it.signedOff === 'boolean' ? it.signedOff : false,
       })),
     })),
   };
@@ -35,6 +37,7 @@ export function resetCompletion(data: ScheduleData): ScheduleData {
         ...it,
         done: false,
         skipped: false,
+        signedOff: false,
         subSteps: it.subSteps.map((s) => ({ ...s, done: false })),
       })),
     })),

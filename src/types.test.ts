@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isItemDone, isItemScheduledOn, isOneTimeInPast, type ScheduleItem } from './types';
+import {
+  isAwaitingSignOff,
+  isItemComplete,
+  isItemDone,
+  isItemScheduledOn,
+  isOneTimeInPast,
+  type ScheduleItem,
+} from './types';
 
 function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {
@@ -10,11 +17,55 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     subSteps: [],
     done: false,
     skipped: false,
+    requiresSignOff: false,
+    signedOff: false,
     days: [0, 1, 2, 3, 4, 5, 6],
     date: '',
     ...overrides,
   };
 }
+
+describe('parent sign-off state', () => {
+  const checked = { done: true };
+
+  it('an item that does not require sign-off is complete the moment it is done, and never awaiting', () => {
+    const item = makeItem(checked);
+    expect(isItemComplete(item)).toBe(true);
+    expect(isAwaitingSignOff(item)).toBe(false);
+  });
+
+  it('a checked-off item that requires sign-off is awaiting and NOT complete until signed off', () => {
+    const item = makeItem({ ...checked, requiresSignOff: true });
+    expect(isAwaitingSignOff(item)).toBe(true);
+    expect(isItemComplete(item)).toBe(false);
+
+    const approved = makeItem({ ...checked, requiresSignOff: true, signedOff: true });
+    expect(isAwaitingSignOff(approved)).toBe(false);
+    expect(isItemComplete(approved)).toBe(true);
+  });
+
+  it('an unchecked item that requires sign-off is neither awaiting nor complete', () => {
+    const item = makeItem({ requiresSignOff: true });
+    expect(isAwaitingSignOff(item)).toBe(false);
+    expect(isItemComplete(item)).toBe(false);
+  });
+
+  it('goes by sub-steps for an item that has them, and a skipped item is never awaiting', () => {
+    const partial = makeItem({
+      requiresSignOff: true,
+      subSteps: [
+        { id: 'a', text: 'a', done: true },
+        { id: 'b', text: 'b', done: false },
+      ],
+    });
+    expect(isAwaitingSignOff(partial)).toBe(false);
+
+    const allSteps = makeItem({ requiresSignOff: true, subSteps: [{ id: 'a', text: 'a', done: true }] });
+    expect(isAwaitingSignOff(allSteps)).toBe(true);
+
+    expect(isAwaitingSignOff(makeItem({ ...checked, requiresSignOff: true, skipped: true }))).toBe(false);
+  });
+});
 
 describe('isItemDone', () => {
   it('uses the item.done flag when there are no sub-steps', () => {

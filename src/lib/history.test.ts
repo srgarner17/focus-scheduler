@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHistorySnapshot, historyProgress } from './history';
+import { buildHistorySnapshot, historyItemState, historyProgress } from './history';
 import type { Category, ScheduleData, ScheduleItem } from '../types';
 import { ALL_DAYS } from '../types';
 
@@ -12,6 +12,8 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     subSteps: [],
     done: false,
     skipped: false,
+    requiresSignOff: false,
+    signedOff: false,
     days: ALL_DAYS,
     date: '',
     ...overrides,
@@ -40,7 +42,17 @@ describe('buildHistorySnapshot', () => {
           name: 'Chores',
           emoji: '🧹',
           color: 'green',
-          items: [{ title: 'Feed the Dog', emoji: '🐕', done: false, skipped: false, subSteps: [] }],
+          items: [
+            {
+              title: 'Feed the Dog',
+              emoji: '🐕',
+              done: false,
+              skipped: false,
+              requiresSignOff: false,
+              signedOff: false,
+              subSteps: [],
+            },
+          ],
         },
       ],
     });
@@ -99,6 +111,38 @@ describe('buildHistorySnapshot', () => {
   it('records a skipped item as skipped', () => {
     const data = makeData([makeCategory([makeItem({ skipped: true })])]);
     expect(buildHistorySnapshot(data, TUESDAY).categories[0].items[0].skipped).toBe(true);
+  });
+});
+
+describe('sign-off in history', () => {
+  it('records requiresSignOff and signedOff so a past day can tell approved from never-approved', () => {
+    const data = makeData([
+      makeCategory([
+        makeItem({ id: 'a', title: 'Approved', done: true, requiresSignOff: true, signedOff: true }),
+        makeItem({ id: 'b', title: 'Never approved', done: true, requiresSignOff: true, signedOff: false }),
+      ]),
+    ]);
+    const [approved, never] = buildHistorySnapshot(data, TUESDAY).categories[0].items;
+    expect(historyItemState(approved)).toBe('done');
+    expect(historyItemState(never)).toBe('awaiting');
+  });
+
+  it('reads records from before sign-off existed (no fields) as plain done / not done', () => {
+    const base = { title: 't', emoji: '✅', skipped: false, subSteps: [] };
+    expect(historyItemState({ ...base, done: true })).toBe('done');
+    expect(historyItemState({ ...base, done: false })).toBe('notDone');
+    expect(historyItemState({ ...base, done: false, skipped: true })).toBe('skipped');
+  });
+
+  it('does not count a checked-off item that never got its required approval as done', () => {
+    const data = makeData([
+      makeCategory([
+        makeItem({ id: 'a', done: true, requiresSignOff: true, signedOff: true }),
+        makeItem({ id: 'b', done: true, requiresSignOff: true, signedOff: false }),
+        makeItem({ id: 'c', done: true }),
+      ]),
+    ]);
+    expect(historyProgress(buildHistorySnapshot(data, TUESDAY))).toEqual({ done: 2, total: 3 });
   });
 });
 

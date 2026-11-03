@@ -46,6 +46,31 @@ describe('normalize', () => {
     expect(normalize(data).focusOrder).toEqual(['i2', 'i1']);
   });
 
+  it('backfills a missing requiresSignOff and signedOff with false, and keeps existing values', () => {
+    const item = (extra: object) => ({
+      id: 'i1',
+      title: 'Old item',
+      emoji: '✅',
+      notes: '',
+      subSteps: [],
+      done: false,
+      skipped: false,
+      days: [0, 1, 2, 3, 4, 5, 6],
+      date: '',
+      ...extra,
+    });
+    const make = (items: object[]) =>
+      baseData({ categories: [{ id: 'c1', name: 'Chores', emoji: '🧹', color: 'blue', items: items as never }] });
+
+    const old = normalize(make([item({})])).categories[0].items[0];
+    expect(old.requiresSignOff).toBe(false);
+    expect(old.signedOff).toBe(false);
+
+    const kept = normalize(make([item({ requiresSignOff: true, signedOff: true })])).categories[0].items[0];
+    expect(kept.requiresSignOff).toBe(true);
+    expect(kept.signedOff).toBe(true);
+  });
+
   it('backfills missing item.days with every day', () => {
     const data = baseData({
       categories: [
@@ -63,6 +88,8 @@ describe('normalize', () => {
               subSteps: [],
               done: false,
               skipped: false,
+              requiresSignOff: false,
+              signedOff: false,
               // @ts-expect-error simulating pre-migration data with no `days`
               days: undefined,
               date: '',
@@ -91,6 +118,8 @@ describe('normalize', () => {
               subSteps: [],
               done: false,
               skipped: false,
+              requiresSignOff: false,
+              signedOff: false,
               days: [1, 2, 3],
               // @ts-expect-error simulating pre-migration data with no `date`
               date: undefined,
@@ -119,6 +148,8 @@ describe('normalize', () => {
               subSteps: [],
               done: false,
               skipped: false,
+              requiresSignOff: false,
+              signedOff: false,
               days: [2],
               date: '2026-09-01',
             },
@@ -188,6 +219,8 @@ describe('resetCompletion', () => {
               ],
               done: false,
               skipped: false,
+              requiresSignOff: false,
+              signedOff: false,
               days: [0, 1, 2, 3, 4, 5, 6],
               date: '',
             },
@@ -199,6 +232,8 @@ describe('resetCompletion', () => {
               subSteps: [],
               done: true,
               skipped: false,
+              requiresSignOff: false,
+              signedOff: false,
               days: [0, 1, 2, 3, 4, 5, 6],
               date: '',
             },
@@ -210,6 +245,8 @@ describe('resetCompletion', () => {
               subSteps: [],
               done: false,
               skipped: true,
+              requiresSignOff: false,
+              signedOff: false,
               days: [0, 1, 2, 3, 4, 5, 6],
               date: '',
             },
@@ -221,5 +258,36 @@ describe('resetCompletion', () => {
     expect(reset.categories[0].items[0].subSteps.every((s) => !s.done)).toBe(true);
     expect(reset.categories[0].items[1].done).toBe(false);
     expect(reset.categories[0].items[2].skipped).toBe(false);
+  });
+
+  it('clears signedOff each night but keeps the standing requiresSignOff setting', () => {
+    const data = baseData({
+      categories: [
+        {
+          id: 'c1',
+          name: 'Chores',
+          emoji: '🧹',
+          color: 'blue',
+          items: [
+            {
+              id: 'i1',
+              title: 'Needs a check',
+              emoji: '✅',
+              notes: '',
+              subSteps: [],
+              done: true,
+              skipped: false,
+              requiresSignOff: true,
+              signedOff: true,
+              days: [0, 1, 2, 3, 4, 5, 6],
+              date: '',
+            },
+          ],
+        },
+      ],
+    });
+    const item = resetCompletion(data).categories[0].items[0];
+    expect(item.signedOff).toBe(false);
+    expect(item.requiresSignOff).toBe(true);
   });
 });

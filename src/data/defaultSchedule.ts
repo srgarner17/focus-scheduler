@@ -16,6 +16,8 @@ function item(
     notes,
     done: false,
     skipped: false,
+    requiresSignOff: false,
+    signedOff: false,
     days,
     date: '',
     subSteps: subSteps.map((text) => ({ id: makeId(), text, done: false })),

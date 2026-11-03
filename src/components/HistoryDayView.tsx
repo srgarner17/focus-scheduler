@@ -1,6 +1,6 @@
 import type { HistoryDay } from '../types';
 import { colorStyles } from '../lib/colors';
-import { historyProgress } from '../lib/history';
+import { historyItemState, historyProgress } from '../lib/history';
 
 // Read-only record of a past day: same bold solid-color pills as Today, but
 // with the state it actually ended in. Nothing here is tappable — history
@@ -31,26 +31,42 @@ export function HistoryDayView({ day }: { day: HistoryDay }) {
               <h3 className="font-bold">{c.name}</h3>
             </div>
             <ul className="space-y-1.5">
-              {c.items.map((it, i) => (
+              {c.items.map((it, i) => {
+                const state = historyItemState(it);
+                return (
                 <li key={i} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${color.solid}`}>
                   <span
-                    aria-label={it.skipped ? 'Skipped' : it.done ? 'Done' : 'Not done'}
+                    aria-label={
+                      state === 'skipped'
+                        ? 'Skipped'
+                        : state === 'awaiting'
+                          ? 'Checked off, never approved'
+                          : state === 'done'
+                            ? 'Done'
+                            : 'Not done'
+                    }
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-sm ${
-                      it.skipped
+                      state === 'skipped'
                         ? 'border-transparent bg-white/25 text-white'
-                        : it.done
-                          ? `border-transparent bg-white ${color.checkFg}`
-                          : 'border-white/70 text-transparent'
+                        : state === 'awaiting'
+                          ? 'border-transparent bg-amber-300 text-amber-900'
+                          : state === 'done'
+                            ? `border-transparent bg-white ${color.checkFg}`
+                            : 'border-white/70 text-transparent'
                     }`}
                   >
-                    {it.skipped ? '－' : it.done ? '✓' : ''}
+                    {state === 'skipped' ? '－' : state === 'awaiting' ? '⏳' : state === 'done' ? '✓' : ''}
                   </span>
                   <span className="text-lg leading-none">{it.emoji}</span>
-                  <span className={`flex-1 font-medium text-white ${it.done ? 'line-through opacity-75' : ''}`}>
+                  <span className={`flex-1 font-medium text-white ${state === 'done' ? 'line-through opacity-75' : ''}`}>
                     {it.title}
                   </span>
-                  {it.skipped ? (
+                  {state === 'skipped' ? (
                     <span className="text-xs text-white">Skipped</span>
+                  ) : state === 'awaiting' ? (
+                    <span className="rounded-full bg-amber-300 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                      Never approved
+                    </span>
                   ) : (
                     it.subSteps.length > 0 && (
                       <span className="text-xs text-white">
@@ -59,7 +75,8 @@ export function HistoryDayView({ day }: { day: HistoryDay }) {
                     )
                   )}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         );

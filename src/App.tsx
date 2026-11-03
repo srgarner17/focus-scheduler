@@ -13,7 +13,7 @@ import {
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useSchedule } from './hooks/useSchedule';
 import type { Category, ScheduleItem } from './types';
-import { isItemDone, isItemScheduledOn } from './types';
+import { isAwaitingSignOff, isItemComplete, isItemDone, isItemScheduledOn } from './types';
 import { friendlyDate, todayDayIndex, todayKey } from './lib/date';
 import { colorStyles } from './lib/colors';
 import { buildFocusSequence } from './lib/focusOrder';
@@ -28,6 +28,7 @@ import { UndoToast } from './components/UndoToast';
 import { RevertButton } from './components/RevertButton';
 import { FocusComplete, FocusView } from './components/FocusView';
 import { FocusOrderEditor } from './components/FocusOrderEditor';
+import { SignOffPrompt } from './components/SignOffPrompt';
 import { useEditRevert } from './hooks/useEditRevert';
 
 const UNDO_MS = 6000;
@@ -44,6 +45,7 @@ function App() {
   const [focusOrderEditorOpen, setFocusOrderEditorOpen] = useState(false);
   const [draggingCategoryId, setDraggingCategoryId] = useState<string | null>(null);
   const [pinPromptOpen, setPinPromptOpen] = useState(false);
+  const [signOffTarget, setSignOffTarget] = useState<{ categoryId: string; itemId: string } | null>(null);
   const [newPinDraft, setNewPinDraft] = useState('');
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -147,7 +149,11 @@ function App() {
     .flatMap((c) => c.items)
     .filter((it) => isItemScheduledOn(it, todayDateKey, today) && !it.skipped);
   const totalCount = allItems.length;
-  const doneCount = allItems.filter(isItemDone).length;
+  // "Done" here means complete: checked off and, where a parent has to approve
+  // it, approved. Items checked off but still waiting are counted separately
+  // so the bar doesn't overstate.
+  const doneCount = allItems.filter(isItemComplete).length;
+  const waitingCount = allItems.filter(isAwaitingSignOff).length;
   const percent = totalCount === 0 ? 0 : (doneCount / totalCount) * 100;
   const allDone = totalCount > 0 && doneCount === totalCount;
 
@@ -161,6 +167,10 @@ function App() {
     buildFocusSequence(data).find(
       ({ item }) => isItemScheduledOn(item, todayDateKey, today) && !item.skipped && !isItemDone(item),
     ) ?? null;
+
+  const signOffItem = signOffTarget
+    ? data.categories.find((c) => c.id === signOffTarget.categoryId)?.items.find((it) => it.id === signOffTarget.itemId)
+    : undefined;
 
   const draggingCategory = draggingCategoryId
     ? (data.categories.find((c) => c.id === draggingCategoryId) ?? null)
@@ -176,6 +186,22 @@ function App() {
             setEditMode(true);
           }}
           onCancel={() => setPinPromptOpen(false)}
+        />
+      )}
+      {signOffTarget && signOffItem && (
+        <SignOffPrompt
+          itemTitle={signOffItem.title}
+          // A parent already in edit mode got there with the PIN.
+          expectedPin={editMode ? '' : data.editPin}
+          onApprove={() => {
+            s.approveSignOff(signOffTarget.categoryId, signOffTarget.itemId);
+            setSignOffTarget(null);
+          }}
+          onSendBack={() => {
+            s.rejectSignOff(signOffTarget.categoryId, signOffTarget.itemId);
+            setSignOffTarget(null);
+          }}
+          onCancel={() => setSignOffTarget(null)}
         />
       )}
       {focusOrderEditorOpen && (
@@ -286,6 +312,11 @@ function App() {
                 </span>
               </div>
               <ProgressBar percent={percent} barClass="bg-neutral-900 dark:bg-white" />
+              {waitingCount > 0 && (
+                <p className="mt-3 text-center text-sm font-semibold text-amber-700 dark:text-amber-300">
+                  ⏳ {waitingCount} waiting for a parent
+                </p>
+              )}
               {allDone && (
                 <p className="mt-3 text-center text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                   🎉 Everything done — great focus today!
@@ -313,7 +344,7 @@ function App() {
                 onExit={() => setFocusMode(false)}
               />
             ) : (
-              <FocusComplete onExit={() => setFocusMode(false)} />
+              <FocusComplete onExit={() => setFocusMode(false)} waitingCount={waitingCount} />
             )
           ) : (
             <div className="grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-x-10 xl:grid-cols-3">
@@ -339,6 +370,7 @@ function App() {
                       deleteCategory={handleDeleteCategory}
                       addItem={s.addItem}
                       updateItemMeta={s.updateItemMeta}
+                      onReviewSignOff={(categoryId, itemId) => setSignOffTarget({ categoryId, itemId })}
                       updateItemTitle={s.updateItemTitle}
                       updateItemNotes={s.updateItemNotes}
                       deleteItem={handleDeleteItem}
