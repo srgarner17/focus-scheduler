@@ -83,11 +83,19 @@ export function FocusView({ category, item, color, doneCount, totalCount, toggle
   );
 }
 
-export function FocusComplete({ onExit }: { onExit: () => void }) {
+// `waitingCount` is checked-off items still needing a parent's approval — the
+// celebration waits for those, since checked isn't the same as finished.
+export function FocusComplete({ onExit, waitingCount = 0 }: { onExit: () => void; waitingCount?: number }) {
   return (
     <div className="mx-auto max-w-md text-center">
       <div className="rounded-3xl bg-neutral-900 dark:bg-white p-10 text-white dark:text-neutral-900">
-        <p className="text-2xl font-bold">🎉 Everything done — great focus today!</p>
+        {waitingCount > 0 ? (
+          <p className="text-2xl font-bold">
+            ✋ All checked off — waiting for a parent to check {waitingCount}
+          </p>
+        ) : (
+          <p className="text-2xl font-bold">🎉 Everything done — great focus today!</p>
+        )}
       </div>
       <button
         type="button"

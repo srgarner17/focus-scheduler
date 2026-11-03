@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { ScheduleItem } from '../types';
-import { ALL_DAYS, isItemDone, isItemScheduledOn } from '../types';
+import { ALL_DAYS, isAwaitingSignOff, isItemComplete, isItemDone, isItemScheduledOn } from '../types';
 import type { ColorStyle } from '../lib/colors';
 import type { EditRevertControls } from '../hooks/useEditRevert';
 import { formatDateShort, todayDayIndex, todayKey } from '../lib/date';
@@ -23,7 +23,12 @@ interface Props {
   toggleItem: (categoryId: string, itemId: string) => void;
   toggleSubStep: (categoryId: string, itemId: string, subStepId: string) => void;
   toggleSkip: (categoryId: string, itemId: string) => void;
-  updateItemMeta: (categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) => void;
+  updateItemMeta: (
+    categoryId: string,
+    itemId: string,
+    patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date' | 'requiresSignOff'>>,
+  ) => void;
+  onReviewSignOff: (categoryId: string, itemId: string) => void;
   updateItemTitle: (categoryId: string, itemId: string, title: string) => void;
   updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
@@ -44,6 +49,7 @@ export function ItemCard({
   toggleSubStep,
   toggleSkip,
   updateItemMeta,
+  onReviewSignOff,
   updateItemTitle,
   updateItemNotes,
   deleteItem,
@@ -56,6 +62,10 @@ export function ItemCard({
   const [newSubStep, setNewSubStep] = useState('');
 
   const done = isItemDone(item);
+  const awaiting = isAwaitingSignOff(item);
+  // Strikethrough and the "finished" look are for complete items only — one
+  // still waiting on a parent is checked off but not finished.
+  const complete = isItemComplete(item);
   const hasDetails = item.subSteps.length > 0 || item.notes.trim().length > 0;
   const activeToday = isItemScheduledOn(item, todayKey(), todayDayIndex());
   const isOneTime = Boolean(item.date);
@@ -90,17 +100,21 @@ export function ItemCard({
             editMode
               ? item.skipped
                 ? 'bg-black/10 dark:bg-white/10 border-transparent text-black/40 dark:text-white/40'
-                : done
-                  ? `${color.chip} border-transparent text-white`
-                  : 'border-black/20 dark:border-white/25 text-transparent hover:border-black/40'
+                : awaiting
+                  ? 'bg-amber-200 dark:bg-amber-400/30 border-transparent text-amber-900 dark:text-amber-200'
+                  : done
+                    ? `${color.chip} border-transparent text-white`
+                    : 'border-black/20 dark:border-white/25 text-transparent hover:border-black/40'
               : item.skipped
                 ? 'bg-white/25 border-transparent text-white'
-                : done
-                  ? `bg-white border-transparent ${color.checkFg}`
-                  : 'border-white/70 text-transparent hover:border-white'
+                : awaiting
+                  ? 'bg-amber-300 border-transparent text-amber-900'
+                  : done
+                    ? `bg-white border-transparent ${color.checkFg}`
+                    : 'border-white/70 text-transparent hover:border-white'
           }`}
         >
-          {item.skipped ? '－' : done ? '✓' : ''}
+          {item.skipped ? '－' : awaiting ? '⏳' : done ? '✓' : ''}
         </button>
 
         <button
@@ -153,7 +167,7 @@ export function ItemCard({
               <span className="text-xl leading-none">{item.emoji}</span>
               <span
                 className={`font-semibold text-white ${
-                  done ? 'line-through opacity-75' : item.skipped ? 'opacity-70' : ''
+                  complete ? 'line-through opacity-75' : item.skipped ? 'opacity-70' : ''
                 }`}
               >
                 {item.title}
@@ -212,6 +226,18 @@ export function ItemCard({
         )}
       </div>
 
+      {awaiting && (
+        <div className="px-4 pb-3 pl-[4.25rem] sm:pb-4">
+          <button
+            type="button"
+            onClick={() => onReviewSignOff(categoryId, item.id)}
+            className="rounded-full bg-amber-300 px-3 py-1 text-xs font-semibold text-amber-900 active:scale-95"
+          >
+            Waiting for a parent · tap to review
+          </button>
+        </div>
+      )}
+
       {expanded && (
         <div className="px-4 pb-4 pl-[4.25rem] space-y-3">
           {editMode && (
@@ -250,6 +276,18 @@ export function ItemCard({
                   chipClass={color.chip}
                 />
               )}
+              <button
+                type="button"
+                aria-pressed={item.requiresSignOff}
+                onClick={() => updateItemMeta(categoryId, item.id, { requiresSignOff: !item.requiresSignOff })}
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  item.requiresSignOff
+                    ? 'bg-amber-300 text-amber-900'
+                    : 'bg-black/5 text-black/50 dark:bg-white/10 dark:text-white/50'
+                }`}
+              >
+                {item.requiresSignOff ? '✓ Needs parent sign-off' : 'Needs parent sign-off'}
+              </button>
             </div>
           )}
           {editMode ? (

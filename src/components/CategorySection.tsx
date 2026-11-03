@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Category, ScheduleItem } from '../types';
-import { isItemDone, isItemScheduledOn, isOneTimeInPast } from '../types';
+import { isItemComplete, isItemScheduledOn, isOneTimeInPast } from '../types';
 import { colorStyles } from '../lib/colors';
 import { todayDayIndex, todayKey } from '../lib/date';
 import type { EditRevertControls } from '../hooks/useEditRevert';
@@ -40,8 +40,9 @@ interface Props {
   updateItemMeta: (
     categoryId: string,
     itemId: string,
-    patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>,
+    patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date' | 'requiresSignOff'>>,
   ) => void;
+  onReviewSignOff: (categoryId: string, itemId: string) => void;
   updateItemTitle: (categoryId: string, itemId: string, title: string) => void;
   updateItemNotes: (categoryId: string, itemId: string, notes: string) => void;
   deleteItem: (categoryId: string, itemId: string) => void;
@@ -65,6 +66,7 @@ export function CategorySection({
   deleteCategory,
   addItem,
   updateItemMeta,
+  onReviewSignOff,
   updateItemTitle,
   updateItemNotes,
   deleteItem,
@@ -90,7 +92,10 @@ export function CategorySection({
   // scheduled today at all.
   const countedItems = scheduledToday.filter((it) => !it.skipped);
   const total = countedItems.length;
-  const doneCount = countedItems.filter(isItemDone).length;
+  // Complete means checked off AND approved where approval is required, so a
+  // category with something still waiting on a parent doesn't read as
+  // finished or auto-collapse.
+  const doneCount = countedItems.filter(isItemComplete).length;
   const percent = total === 0 ? 0 : (doneCount / total) * 100;
   const allDone = total > 0 && doneCount === total;
 
@@ -135,6 +140,7 @@ export function CategorySection({
     toggleSubStep,
     toggleSkip,
     updateItemMeta,
+    onReviewSignOff,
     updateItemTitle,
     updateItemNotes,
     deleteItem,

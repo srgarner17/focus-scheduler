@@ -221,6 +221,87 @@ describe('useSchedule', () => {
     expect(getHistoryDoc('2026-08-24')).toBeUndefined();
   });
 
+  describe('parent sign-off', () => {
+    async function mountWithSignOffItem() {
+      const view = await mountSchedule();
+      const category = view.result.current.data!.categories[0];
+      const itemId = category.items[0].id;
+      act(() => {
+        view.result.current.updateItemMeta(category.id, itemId, { requiresSignOff: true });
+      });
+      const item = () => view.result.current.data!.categories[0].items[0];
+      return { ...view, category, itemId, item };
+    }
+
+    it('updateItemMeta can turn the standing requiresSignOff setting on', async () => {
+      const { item } = await mountWithSignOffItem();
+      expect(item().requiresSignOff).toBe(true);
+      expect(item().signedOff).toBe(false);
+    });
+
+    it('approveSignOff marks a checked-off item signed off', async () => {
+      const { result, category, itemId, item } = await mountWithSignOffItem();
+      act(() => result.current.toggleItem(category.id, itemId));
+      act(() => result.current.approveSignOff(category.id, itemId));
+      expect(item().signedOff).toBe(true);
+    });
+
+    it('approveSignOff does nothing for an item that is not checked off, or does not require sign-off', async () => {
+      const { result, category, itemId, item } = await mountWithSignOffItem();
+      // Not checked off yet — e.g. a stale approval from another device.
+      act(() => result.current.approveSignOff(category.id, itemId));
+      expect(item().signedOff).toBe(false);
+
+      // Checked off, but sign-off isn't required for the second item.
+      const second = result.current.data!.categories[0].items[1];
+      act(() => result.current.toggleItem(category.id, second.id));
+      act(() => result.current.approveSignOff(category.id, second.id));
+      expect(result.current.data!.categories[0].items[1].signedOff).toBe(false);
+    });
+
+    it('un-checking an approved item clears the approval, and re-checking needs a fresh one', async () => {
+      const { result, category, itemId, item } = await mountWithSignOffItem();
+      act(() => result.current.toggleItem(category.id, itemId));
+      act(() => result.current.approveSignOff(category.id, itemId));
+      expect(item().signedOff).toBe(true);
+
+      act(() => result.current.toggleItem(category.id, itemId));
+      expect(item().signedOff).toBe(false);
+
+      act(() => result.current.toggleItem(category.id, itemId));
+      expect(item().subSteps.every((s) => s.done)).toBe(true);
+      expect(item().signedOff).toBe(false);
+    });
+
+    it('un-checking a single sub-step of an approved item clears the approval', async () => {
+      const { result, category, itemId, item } = await mountWithSignOffItem();
+      act(() => result.current.toggleItem(category.id, itemId));
+      act(() => result.current.approveSignOff(category.id, itemId));
+
+      act(() => result.current.toggleSubStep(category.id, itemId, item().subSteps[0].id));
+      expect(item().signedOff).toBe(false);
+    });
+
+    it('rejectSignOff sends it back to unchecked, steps included', async () => {
+      const { result, category, itemId, item } = await mountWithSignOffItem();
+      act(() => result.current.toggleItem(category.id, itemId));
+      expect(item().subSteps.every((s) => s.done)).toBe(true);
+
+      act(() => result.current.rejectSignOff(category.id, itemId));
+      expect(item().subSteps.every((s) => !s.done)).toBe(true);
+      expect(item().signedOff).toBe(false);
+    });
+
+    it('skipping an item clears any approval', async () => {
+      const { result, category, itemId, item } = await mountWithSignOffItem();
+      act(() => result.current.toggleItem(category.id, itemId));
+      act(() => result.current.approveSignOff(category.id, itemId));
+      act(() => result.current.toggleSkip(category.id, itemId));
+      expect(item().signedOff).toBe(false);
+      expect(item().skipped).toBe(true);
+    });
+  });
+
   it('toggleItem flips every sub-step together for an item that has them', async () => {
     const { result } = await mountSchedule();
     const category = result.current.data!.categories[0];

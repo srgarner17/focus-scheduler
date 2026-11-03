@@ -12,6 +12,8 @@ export interface ScheduleItem {
   subSteps: SubStep[];
   done: boolean; // used directly only when subSteps is empty
   skipped: boolean; // transient, reset nightly like done — "doesn't apply today," mutually exclusive with done
+  requiresSignOff: boolean; // standing setting: a parent has to approve this before it counts as done
+  signedOff: boolean; // transient, reset nightly like done — a parent approved today's completion
   days: number[]; // which days this item is active: 0=Sun..6=Sat (matches Date#getDay()) — ignored when `date` is set
   date: string; // YYYY-MM-DD — when set, this is a one-time item active only on that exact date, never repeats
 }
@@ -44,6 +46,21 @@ export function isItemDone(item: ScheduleItem): boolean {
     return item.subSteps.every((s) => s.done);
   }
   return item.done;
+}
+
+// Checked off, but still needs a parent's approval. Derived rather than
+// stored so it can never disagree with `done`/`signedOff`: un-checking an
+// item (or any step) clears signedOff, and an item that doesn't require
+// sign-off is never "awaiting."
+export function isAwaitingSignOff(item: ScheduleItem): boolean {
+  return item.requiresSignOff && !item.skipped && !item.signedOff && isItemDone(item);
+}
+
+// What counts as finished for progress, auto-collapse, and the completion
+// screen: checked off, and approved if approval is required. A waiting item
+// is deliberately NOT complete — the progress bar shouldn't overstate.
+export function isItemComplete(item: ScheduleItem): boolean {
+  return isItemDone(item) && (!item.requiresSignOff || item.signedOff);
 }
 
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -85,6 +102,10 @@ export interface HistoryItem {
   emoji: string;
   done: boolean;
   skipped: boolean;
+  // Optional because records written before parent sign-off existed don't
+  // have them — absent means "didn't require sign-off."
+  requiresSignOff?: boolean;
+  signedOff?: boolean;
   subSteps: { text: string; done: boolean }[];
 }
 

@@ -217,3 +217,68 @@ describe('App focus-order editor', () => {
     expect(screen.getByDisplayValue('Make Your Bed')).toBeInTheDocument();
   });
 });
+
+describe('App parent sign-off', () => {
+  // The default schedule has no PIN, so entering edit mode and approving
+  // need nothing extra - the PIN rules themselves are covered in
+  // SignOffPrompt's own tests.
+  async function requireSignOffOnFirstItem() {
+    await mountApp();
+    fireEvent.click(screen.getByRole('button', { name: '⚙️ Edit' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /expand details/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /needs parent sign-off/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Done editing' }));
+  }
+
+  it('checking off an item that needs sign-off leaves it waiting, then a parent approves it', async () => {
+    await requireSignOffOnFirstItem();
+    expect(screen.queryByText(/waiting for a parent$/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
+
+    // Checked off, but not counted as finished: it shows as waiting.
+    expect(screen.getByText('⏳ 1 waiting for a parent')).toBeInTheDocument();
+    expect(screen.queryByText('🎉 Everything done — great focus today!')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /tap to review/i }));
+    expect(screen.getByText('Check this one')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    expect(screen.queryByText('Check this one')).not.toBeInTheDocument();
+    expect(screen.queryByText(/waiting for a parent/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /tap to review/i })).not.toBeInTheDocument();
+  });
+
+  it('"Not done yet" sends it back to unchecked', async () => {
+    await requireSignOffOnFirstItem();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /tap to review/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Not done yet' }));
+
+    expect(screen.queryByText(/waiting for a parent/)).not.toBeInTheDocument();
+    // Unchecked again, so the first item offers "Mark done" once more.
+    expect(screen.getAllByRole('button', { name: 'Mark done' })[0]).toBeInTheDocument();
+  });
+
+  it('un-checking an approved item clears the approval so it waits again when re-checked', async () => {
+    await requireSignOffOnFirstItem();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /tap to review/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark not done' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
+
+    expect(screen.getByText('⏳ 1 waiting for a parent')).toBeInTheDocument();
+  });
+
+  it('Focus moves past a waiting item instead of blocking on it', async () => {
+    await requireSignOffOnFirstItem();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
+
+    fireEvent.click(screen.getByRole('button', { name: '🎯 Focus' }));
+    // First item is waiting on a parent, so Focus is already on the next one.
+    expect(screen.queryByText('Make Your Bed')).not.toBeInTheDocument();
+    expect(screen.getByText('Brush Teeth')).toBeInTheDocument();
+  });
+});

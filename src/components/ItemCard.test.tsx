@@ -15,6 +15,8 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     subSteps: [],
     done: false,
     skipped: false,
+    requiresSignOff: false,
+    signedOff: false,
     days: ALL_DAYS,
     date: '',
     ...overrides,
@@ -42,6 +44,7 @@ function renderItem(item: ScheduleItem, overrides: Partial<Record<string, unknow
       toggleSubStep={noop}
       toggleSkip={noop}
       updateItemMeta={updateItemMeta}
+      onReviewSignOff={noop}
       updateItemTitle={updateItemTitle}
       updateItemNotes={updateItemNotes}
       deleteItem={noop}
@@ -200,6 +203,7 @@ function renderViewMode(item: ScheduleItem, overrides: Partial<Record<string, un
       toggleSubStep={noop}
       toggleSkip={toggleSkip}
       updateItemMeta={noop}
+      onReviewSignOff={noop}
       updateItemTitle={noop}
       updateItemNotes={noop}
       deleteItem={noop}
@@ -253,5 +257,55 @@ describe('ItemCard skip for today', () => {
     const { toggleItem } = renderViewMode(makeItem({ skipped: true }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark done' }));
     expect(toggleItem).toHaveBeenCalledWith('cat-1', 'item-1');
+  });
+});
+
+describe('ItemCard parent sign-off', () => {
+  it('shows a "waiting for a parent" control for a checked-off item that requires sign-off, and tapping it asks for review', () => {
+    const onReviewSignOff = vi.fn();
+    renderViewMode(makeItem({ done: true, requiresSignOff: true }), { onReviewSignOff });
+
+    fireEvent.click(screen.getByRole('button', { name: /waiting for a parent/i }));
+    expect(onReviewSignOff).toHaveBeenCalledWith('cat-1', 'item-1');
+  });
+
+  it('shows no waiting control for an item that does not require sign-off, or one still unchecked', () => {
+    const { unmount } = renderViewMode(makeItem({ done: true }));
+    expect(screen.queryByRole('button', { name: /waiting for a parent/i })).not.toBeInTheDocument();
+    unmount();
+
+    renderViewMode(makeItem({ done: false, requiresSignOff: true }));
+    expect(screen.queryByRole('button', { name: /waiting for a parent/i })).not.toBeInTheDocument();
+  });
+
+  it('only strikes the title through once it is signed off - waiting is checked but not finished', () => {
+    const { unmount } = renderViewMode(makeItem({ title: 'Clean Room', done: true, requiresSignOff: true }));
+    expect(screen.getByText('Clean Room').className).not.toContain('line-through');
+    unmount();
+
+    renderViewMode(makeItem({ title: 'Clean Room', done: true, requiresSignOff: true, signedOff: true }));
+    expect(screen.getByText('Clean Room').className).toContain('line-through');
+    expect(screen.queryByRole('button', { name: /waiting for a parent/i })).not.toBeInTheDocument();
+  });
+
+  it('lets him un-check his own waiting item with the main checkbox (which clears any approval)', () => {
+    const { toggleItem } = renderViewMode(makeItem({ done: true, requiresSignOff: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mark not done' }));
+    expect(toggleItem).toHaveBeenCalledWith('cat-1', 'item-1');
+  });
+
+  it('lets a parent turn the standing sign-off requirement on and off in edit mode', () => {
+    const { updateItemMeta, unmount } = renderItem(makeItem());
+    const toggle = screen.getByRole('button', { name: /needs parent sign-off/i });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(toggle);
+    expect(updateItemMeta).toHaveBeenCalledWith('cat-1', 'item-1', { requiresSignOff: true });
+    unmount();
+
+    const second = renderItem(makeItem({ requiresSignOff: true }));
+    const on = screen.getByRole('button', { name: /needs parent sign-off/i });
+    expect(on).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(on);
+    expect(second.updateItemMeta).toHaveBeenCalledWith('cat-1', 'item-1', { requiresSignOff: false });
   });
 });

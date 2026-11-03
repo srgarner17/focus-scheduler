@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { onSnapshot, runTransaction } from 'firebase/firestore';
 import type { Category, CategoryColor, ScheduleData, ScheduleItem } from '../types';
-import { ALL_DAYS } from '../types';
+import { ALL_DAYS, isItemDone } from '../types';
 import { historyDocRef, normalize, resetCompletion, scheduleDocRef } from '../lib/storage';
 import { buildHistorySnapshot } from '../lib/history';
 import { buildDefaultSchedule } from '../data/defaultSchedule';
@@ -303,13 +303,22 @@ export function useSchedule() {
   // mutually exclusive, and by the time this fires `skipped` should already
   // be false anyway (toggleSkip clears done first), but this keeps the
   // invariant true unconditionally rather than relying on caller order.
+  //
+  // Every change to completion also clears `signedOff`: a parent approved a
+  // specific completion, so un-checking something (or any of its steps) —
+  // or checking it again afterward — has to earn a fresh approval.
   function toggleItem(categoryId: string, itemId: string) {
     updateItem(categoryId, itemId, (it) => {
       if (it.subSteps.length > 0) {
         const allDone = it.subSteps.every((s) => s.done);
-        return { ...it, subSteps: it.subSteps.map((s) => ({ ...s, done: !allDone })), skipped: false };
+        return {
+          ...it,
+          subSteps: it.subSteps.map((s) => ({ ...s, done: !allDone })),
+          skipped: false,
+          signedOff: false,
+        };
       }
-      return { ...it, done: !it.done, skipped: false };
+      return { ...it, done: !it.done, skipped: false, signedOff: false };
     });
   }
 
@@ -318,6 +327,27 @@ export function useSchedule() {
       ...it,
       subSteps: it.subSteps.map((s) => (s.id === subStepId ? { ...s, done: !s.done } : s)),
       skipped: false,
+      signedOff: false,
+    }));
+  }
+
+  // A parent approving a checked-off item that requires sign-off. Guarded so
+  // a stale approval (the item was un-checked or skipped on another device
+  // in the meantime) can't mark something signed off that isn't done.
+  function approveSignOff(categoryId: string, itemId: string) {
+    updateItem(categoryId, itemId, (it) =>
+      it.requiresSignOff && !it.skipped && isItemDone(it) ? { ...it, signedOff: true } : it,
+    );
+  }
+
+  // A parent deciding it wasn't done right: back to unchecked (including
+  // every step), no longer waiting. No note or reason in v1.
+  function rejectSignOff(categoryId: string, itemId: string) {
+    updateItem(categoryId, itemId, (it) => ({
+      ...it,
+      done: false,
+      subSteps: it.subSteps.map((s) => ({ ...s, done: false })),
+      signedOff: false,
     }));
   }
 
@@ -330,7 +360,13 @@ export function useSchedule() {
     updateItem(categoryId, itemId, (it) => {
       const skipped = !it.skipped;
       if (!skipped) return { ...it, skipped };
-      return { ...it, skipped, done: false, subSteps: it.subSteps.map((s) => ({ ...s, done: false })) };
+      return {
+        ...it,
+        skipped,
+        done: false,
+        signedOff: false,
+        subSteps: it.subSteps.map((s) => ({ ...s, done: false })),
+      };
     });
   }
 
@@ -406,6 +442,8 @@ export function useSchedule() {
       subSteps: [],
       done: false,
       skipped: false,
+      requiresSignOff: false,
+      signedOff: false,
       days: ALL_DAYS,
       date: '',
     };
@@ -416,7 +454,11 @@ export function useSchedule() {
   // Discrete, one-shot fields (emoji tap/paste, the day picker, the
   // one-time/recurring switch) — immediate, same as before. Title/notes/time
   // are sustained typing and go through the debounced setters below instead.
-  function updateItemMeta(categoryId: string, itemId: string, patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date'>>) {
+  function updateItemMeta(
+    categoryId: string,
+    itemId: string,
+    patch: Partial<Pick<ScheduleItem, 'emoji' | 'days' | 'date' | 'requiresSignOff'>>,
+  ) {
     updateItem(categoryId, itemId, (it) => ({ ...it, ...patch }));
   }
 
@@ -515,6 +557,8 @@ export function useSchedule() {
     toggleItem,
     toggleSubStep,
     toggleSkip,
+    approveSignOff,
+    rejectSignOff,
     resetAll,
     setChildName,
     setEditPin,
